@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+httpx
+python-dotenv
+requests
+docker
+defusedxml
+python-multipart
+sqlalchemy
