@@ -18,68 +18,78 @@ Base = declarative_base()
 
 class User(Base):
     __tablename__ = "UserInfo"
-    email = Column(String(100),primary_key=True,nullable=False) #User Email
-    github_pat = Column(String(255),nullable=False) #PAT 
-    password = Column(String(100),nullable=False)  #User Login-Signup Password 
-    experience_lvl = Column(String(20),nullable=False) #Beginner-Intermediate-Expert
-Base.metadata.create_all(bind = engine)  #To connect to the engine 
+    email = Column(String(100), primary_key=True, nullable=False)
+    github_pat = Column(String(255), nullable=True) # Optional for OAuth users
+    password = Column(String(100), nullable=True) # Optional for OAuth users
+    experience_lvl = Column(String(20), nullable=True, default="Beginner")
+    oauth_provider = Column(String(50), nullable=True) # e.g., 'google', 'github'
+    oauth_id = Column(String(100), nullable=True) # Provider-specific user ID
 
-
-
+Base.metadata.create_all(bind=engine)
 
 class UserResponse(BaseModel):
-    email:str
-    raw_pat:str = "" #To store the raw pat for encryption 
-    experience_lvl:str
+    email: str
+    experience_lvl: str
+    oauth_provider: Optional[str] = None
     
-    @computed_field
-    def three_chara(self) -> str:
-         if self.raw_pat:
-            return f"{self.raw_pat[:3]}"
-         else:
-            return "Not set"
-         
-
     class Config:
         from_attributes = True
 
-def create_db():
+class OAuthLoginRequest(BaseModel):
+    email: str
+    oauth_provider: str
+    oauth_id: str
+    name: Optional[str] = None
+
+def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
-            db.close()
-create_db()
-    
+        db.close()
 
 @app.get('/')
 def read_root():
-    return {'Hello': 'Amazon Nova'}
+    return {'message': 'Vectr API is running'}
 
-
-@app.post("/user/signup",response_model=UserResponse)
-def signup(email:str,pat:str,password:str,level:str,db:Session = Depends(create_db)):
+@app.post("/user/signup", response_model=UserResponse)
+def signup(email: str, password: str, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="Email Already Registered")
-    new_user = User(email = email, github_pat = pat, password = password,experience_lvl = level)
-
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    new_user = User(email=email, password=password, experience_lvl="Beginner")
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    return new_user
 
-    #adds more encryption to the data passed through in the API format
-    response = UserResponse.model_validate(new_user)
-    response.raw_pat = pat
-    return response
-
-
-
-
-@app.post("user/login")
-def login(email:str,password:str,db: Session = Depends(create_db)):
+@app.post("/user/login", response_model=UserResponse)
+def login(email: str, password: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == email).first()
-
     if not user or user.password != password:
-        raise HTTPException(status_code=401,detail="Invalid username or password")
-        return {"message":"Login Successful","email":user.email}
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    return user
+
+@app.post("/user/oauth-login", response_model=UserResponse)
+def oauth_login(request: OAuthLoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == request.email).first()
+    
+    if not user:
+        # Create new user for first-time OAuth login
+        user = User(
+            email=request.email,
+            oauth_provider=request.oauth_provider,
+            oauth_id=request.oauth_id,
+            experience_lvl="Beginner"
+        )
+        db.add(user)
+    else:
+        # Update existing user with OAuth info if not already set
+        if not user.oauth_provider:
+            user.oauth_provider = request.oauth_provider
+            user.oauth_id = request.oauth_id
+            
+    db.commit()
+    db.refresh(user)
+    return user
