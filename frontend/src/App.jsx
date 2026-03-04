@@ -110,7 +110,42 @@ const itemVariants = {
   visible: { opacity: 1, y: 0 }
 };
 
+import { loginWithGoogleFirebase } from './firebase';
+
 const Login = ({ theme, toggleTheme }) => {
+  const navigate = useNavigate();
+
+  const handleGoogleLogin = async () => {
+    try {
+      console.log("🔵 Google Login Clicked!");
+      const { user, idToken } = await loginWithGoogleFirebase();
+      console.log("✅ Firebase popup successful!", user.email);
+
+      const response = await fetch("http://localhost:8000/auth/firebase", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${idToken}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log("✅ Logged in to backend:", data);
+        localStorage.setItem("userEmail", data.email);
+        alert(`Success! Logged in as ${data.email}`);
+        navigate("/dashboard");
+      } else {
+        console.error("❌ Backend login failed:", data.detail);
+        alert("Backend Login Failed: " + data.detail);
+      }
+    } catch (error) {
+      console.error("❌ Google Login Error:", error);
+      alert("Google Sign-In Error: " + error.message);
+    }
+  };
+
   return (
     <AuthLayout theme={theme} toggleTheme={toggleTheme}>
       <motion.form
@@ -139,6 +174,31 @@ const Login = ({ theme, toggleTheme }) => {
           whileTap={{ scale: 0.98 }}
         >
           Sign In
+        </motion.button>
+
+        <motion.div className="divider" style={{ textAlign: 'center', margin: '1rem 0' }} variants={itemVariants}>
+          <span>or</span>
+        </motion.div>
+
+        <motion.button
+          type="button"
+          className="google-btn"
+          onClick={handleGoogleLogin}
+          variants={itemVariants}
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.98 }}
+          style={{
+            width: '100%',
+            padding: '12px',
+            borderRadius: '12px',
+            border: '1px solid var(--border)',
+            background: 'transparent',
+            color: 'var(--text-main)',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }}
+        >
+          Continue with Google
         </motion.button>
 
         <motion.div className="switch-auth" variants={itemVariants}>
