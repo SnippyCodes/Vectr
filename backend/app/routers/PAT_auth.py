@@ -1,7 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import requests
-import os
 import models as models
 import app.schemas as schemas
 from database import get_db
@@ -25,21 +24,23 @@ def validate_and_save_pat(pat_data: schemas.PATUpdate, db: Session = Depends(get
             raise HTTPException(status_code=401, detail="Invalid GitHub PAT.")
         raise HTTPException(status_code=e.response.status_code, detail="Failed to connect to GitHub.")
         
-    # 2. Save Encrypted PAT to the User database
+    # 2. Get GitHub username
+    github_user = res.json()
+    github_username = github_user.get("login")
+    
+    # 3. Find user and save encrypted PAT + github_username
     user = db.query(models.User).filter(models.User.email == pat_data.email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
         
-    # Encrypt the PAT before saving it to the database
     encrypted_pat = encrypt_pat(pat_data.pat)
     user.github_pat = encrypted_pat
+    user.github_username = github_username
     
     db.commit()
     db.refresh(user)
     
-    github_user = res.json()
-    
     return {
         "message": "GitHub PAT validated and saved successfully",
-        "github_username": github_user.get("login")
+        "github_username": github_username
     }

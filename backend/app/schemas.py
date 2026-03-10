@@ -30,6 +30,24 @@ class GoogleAtuhentication(BaseModel):
     email: str
     name: Optional[str] = None
 
+class LoginResponse(BaseModel):
+    """Response for both email login and google login"""
+    message: str
+    email: str
+    has_pat: bool = False
+    experience_level: str = "Intermediate"
+    auth_type: str = "email"
+    github_username: Optional[str] = None
+
+class SignupResponse(BaseModel):
+    """Response for email signup"""
+    message: str
+    email: str
+    has_pat: bool = False
+    experience_level: str = "Intermediate"
+    auth_type: str = "email"
+
+
 
 # Tier 2 - Main Dashboard Schemas (Matched to UI)
 
