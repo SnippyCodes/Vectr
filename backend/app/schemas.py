@@ -132,3 +132,15 @@ class AskNovaRequest(BaseModel):
 
 class AskNovaResponse(BaseModel):
     reply: str
+
+class SummarizeIssueRequest(BaseModel):
+    repo_name: str
+    issue_number: int
+    issue_title: str
+    issue_body: str
+    comments: List[str]
+
+class SummarizeIssueResponse(BaseModel):
+    summary: str
+    approach: str
+    commands: str
