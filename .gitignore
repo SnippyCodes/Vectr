@@ -1,4 +1,4 @@
 .env
 vectr
 /backend/.env
-/frontend/Screens
+/frontend/vectr-app/node_modules
