@@ -12,6 +12,7 @@ export const ROUTES = {
     CONTRIBUTE: '/contribute',
     ISSUE: '/issue/:org/:repo/:issueNumber',
     DRAFT_PR: '/draft-pr/:org/:repo/:issueNumber',
+    SETTINGS: '/settings',
 };
 
 export const buildIssuePath = (org, repo, num) => `/issue/${org}/${repo}/${num}`;

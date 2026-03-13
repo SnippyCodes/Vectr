@@ -12,6 +12,7 @@ import DashboardPage from './pages/DashboardPage';
 import ContributePage from './pages/ContributePage';
 import IssueDashboardPage from './pages/IssueDashboardPage';
 import DraftPRPage from './pages/DraftPRPage';
+import SettingsPage from './pages/SettingsPage';
 
 function AppRoutes() {
   const { isAuthenticated } = useAuth();
@@ -30,6 +31,7 @@ function AppRoutes() {
         <Route path={ROUTES.CONTRIBUTE} element={<ContributePage />} />
         <Route path={ROUTES.ISSUE} element={<IssueDashboardPage />} />
         <Route path={ROUTES.DRAFT_PR} element={<DraftPRPage />} />
+        <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />
       </Route>
 
       {/* Fallback */}
