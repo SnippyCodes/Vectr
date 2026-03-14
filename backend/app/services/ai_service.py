@@ -9,7 +9,7 @@ bedrock_client = boto3.client(
 )
 
 # Amazon Nova Lite model ID
-MODEL_ID = "us.amazon.nova-lite-v1:0"
+MODEL_ID = "amazon.nova-lite-v1:0"
 
 def ask_nova_about_issues(catalog: List[Dict], user_message: str, chat_history: List[Dict] = None) -> str:
     """

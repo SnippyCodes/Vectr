@@ -71,11 +71,11 @@ async def _invoke_nova_for_analysis(client, repo_name: str, tree: str, readme: s
         
         endpoint_url = os.getenv("AWS_ENDPOINT_URL")
         # Route to Ollama if locally mocked
-        if endpoint_url and "localhost" in endpoint_url or "127.0.0.1" in endpoint_url:
+        if endpoint_url and ("localhost" in endpoint_url or "127.0.0.1" in endpoint_url):
             import requests as req
             ollama_url = "http://127.0.0.1:11434/api/chat"
             payload = {
-                "model": "us.amazon.nova-2-lite:v1.0",
+                "model": "amazon.nova-2-lite:v1.0",
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_msg}

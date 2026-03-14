@@ -19,11 +19,19 @@ def get_bedrock_client():
         # or having an IAM role assigned to the EC2 instance reading from .env
         client_kwargs = {
             "service_name": "bedrock-runtime",
-            "region_name": os.getenv("AWS_REGION", "us-east-1")
+            "region_name": os.getenv("AWS_REGION", "us-east-1").strip().strip('"').strip("'")
         }
+        
+        access_key = os.getenv("AWS_ACCESS_KEY_ID")
+        secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+        
+        if access_key and secret_key:
+            client_kwargs["aws_access_key_id"] = access_key.strip().strip('"').strip("'")
+            client_kwargs["aws_secret_access_key"] = secret_key.strip().strip('"').strip("'")
+            
         endpoint_url = os.getenv("AWS_ENDPOINT_URL")
         if endpoint_url:
-            client_kwargs["endpoint_url"] = endpoint_url
+            client_kwargs["endpoint_url"] = endpoint_url.strip().strip('"').strip("'")
             
         client = boto3.client(**client_kwargs)
         return client
@@ -98,7 +106,7 @@ async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db
     }
     try:
         endpoint_url = os.getenv("AWS_ENDPOINT_URL")
-        if endpoint_url and "localhost" in endpoint_url or "127.0.0.1" in endpoint_url:
+        if endpoint_url and ("localhost" in endpoint_url or "127.0.0.1" in endpoint_url):
             # INTERCEPT: Instead of using AWS/Bedrock, forward directly to local Ollama via standard HTTP
             import requests as req
             ollama_url = "http://127.0.0.1:11434/api/chat"
@@ -107,7 +115,7 @@ async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db
                 ollama_messages.append({"role": msg.role, "content": msg.content})
                 
             payload = {
-                "model": "us.amazon.nova-2-lite:v1.0",  # Optional: Fallback model based on Ollama tags
+                "model": "amazon.nova-2-lite:v1.0",  # Optional: Fallback model based on Ollama tags
                 "messages": ollama_messages,
                 "stream": False,
                 "options": {
@@ -121,7 +129,6 @@ async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db
             return schemas.AskNovaResponse(reply=reply_text)
             
         else:
-            client = boto3.client(**client_kwargs)
             body = {
                 "system": [{"text": system_prompt}],
                 "messages": formatted_messages,
@@ -212,11 +219,11 @@ async def summarize_issue(request: schemas.SummarizeIssueRequest, background_tas
 
     try:
         endpoint_url = os.getenv("AWS_ENDPOINT_URL")
-        if endpoint_url and "localhost" in endpoint_url or "127.0.0.1" in endpoint_url:
+        if endpoint_url and ("localhost" in endpoint_url or "127.0.0.1" in endpoint_url):
             import requests as req
             ollama_url = "http://127.0.0.1:11434/api/chat"
             payload = {
-                "model": "us.amazon.nova-2-lite:v1.0",
+                "model": "amazon.nova-2-lite:v1.0",
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": "Please provide the summary JSON."}
