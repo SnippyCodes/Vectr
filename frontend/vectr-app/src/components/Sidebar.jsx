@@ -8,14 +8,9 @@ import { ROUTES, APP } from '../constants';
  * Includes logout button and profile avatar.
  */
 export default function Sidebar() {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [isExpanded, setIsExpanded] = useState(false);
-
-    const handleLogout = () => {
-        logout();
-        navigate(ROUTES.LOGIN);
-    };
 
     const initials = user?.githubUsername?.charAt(0)?.toUpperCase()
         || user?.email?.charAt(0)?.toUpperCase()
@@ -50,7 +45,7 @@ export default function Sidebar() {
             <div className="flex-1" />
 
             <a
-                href="https://github.com/vectr-app"
+                href="https://github.com/Yog-1to1-code/Vectr"
                 target="_blank"
                 rel="noreferrer"
                 className={`mb-2 w-full flex items-center p-2 rounded-lg text-text-secondary hover:text-text-primary transition-colors ${!isExpanded && 'justify-center'}`}
@@ -75,18 +70,7 @@ export default function Sidebar() {
                 {isExpanded && <span className="ml-3 font-medium">Settings</span>}
             </NavLink>
 
-            {/* Logout */}
-            <button
-                onClick={handleLogout}
-                className={`mb-4 w-full flex items-center p-2 rounded-lg text-text-secondary hover:text-status-rejected transition-colors ${!isExpanded && 'justify-center'}`}
-                aria-label="Logout"
-                title={!isExpanded ? "Logout" : ""}
-            >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                {isExpanded && <span className="ml-3 font-medium">Logout</span>}
-            </button>
+
 
             <div
                 className={`w-8 h-8 rounded-full bg-gradient-to-br from-accent-cyan to-accent-blue flex items-center justify-center text-xs font-bold text-bg-primary ${isExpanded && 'mb-2 self-start ml-2 ml-0'}`}

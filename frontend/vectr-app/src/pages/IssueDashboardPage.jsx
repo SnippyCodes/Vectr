@@ -31,6 +31,7 @@ export default function IssueDashboardPage() {
     const [refreshingCommits, setRefreshingCommits] = useState(false);
     const [chatMessages, setChatMessages] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
+    const [isRefreshingTestingSteps, setIsRefreshingTestingSteps] = useState(false);
 
     // Git commands are always generated locally — no Nova credits needed
     const gitCommands = (
@@ -42,6 +43,21 @@ export default function IssueDashboardPage() {
         `### 4. Push to Your Fork\n\`\`\`\ngit push origin fix/issue-${issueNumber}\n\`\`\`\n\n` +
         `### 5. Evaluate with Nova\nHit **Refresh** on the Commits panel, then use **Ask Nova!** to get AI-powered feedback on your changes.`
     );
+
+    // Helper: fetch testing steps from Nova (used in multiple places)
+    const autoFetchTestingSteps = async () => {
+        setIsRefreshingTestingSteps(true);
+        setTestResults("fetching testing steps, please wait");
+        try {
+            const data = await novaAPI.fetchTestingSteps(repoName, parseInt(issueNumber), issue.title || '', issue.body || '', [], user?.email);
+            setTestResults(data.testing_steps || 'No testing steps provided.');
+        } catch (err) {
+            console.error("Auto-fetch testing steps failed:", err);
+            setTestResults('');
+        } finally {
+            setIsRefreshingTestingSteps(false);
+        }
+    };
 
     // Auto-summarize via Amazon Nova on mount
     useEffect(() => {
@@ -56,7 +72,8 @@ export default function IssueDashboardPage() {
                 if (!cancelled && saved && (saved.issue_summary || saved.chat_history !== '[]')) {
                     setIssueSummary(saved.issue_summary || '');
                     setFinalApproach(saved.final_approach || '');
-                    setTestResults(saved.test_results || '');
+                    const savedSteps = saved.test_results || '';
+                    setTestResults(savedSteps);
                     // Restore fork status from saved progress
                     if (saved.fork_status === 'available') {
                         setForkDetected(true);
@@ -78,9 +95,7 @@ export default function IssueDashboardPage() {
                 if (!cancelled) {
                     setIssueSummary(issue.body || "No issue description provided.");
                     setFinalApproach("Amazon Nova AI features are currently disabled. Set VITE_USE_NOVA=true to enable AI-powered approach suggestions.");
-                    setGitCommands(
-                        `# Fork and clone\ngit clone https://github.com/${repoName}.git\ncd ${repo}\n\n# Create a feature branch\ngit checkout -b fix/issue-${issueNumber}\n\n# After making changes\ngit add .\ngit commit -m "Fix #${issueNumber}: ${issue.title || ''}"\ngit push origin fix/issue-${issueNumber}`
-                    );
+                    setTestResults("");
                     setSummarizing(false);
                 }
                 return;
@@ -98,13 +113,13 @@ export default function IssueDashboardPage() {
                 if (!cancelled) {
                     setIssueSummary(data.summary || '');
                     setFinalApproach(data.approach || '');
-                    // git commands are generated locally — never from Nova
+                    setTestResults(data.testing_steps || '');
                 }
             } catch (err) {
                 if (!cancelled) {
                     setSummaryError(err.message || 'Nova could not summarize this issue');
                     setIssueSummary(issue.body || `Issue #${issueNumber}: ${issue.title || 'No title'}\n\nUse the "Ask Nova!" panel to get an AI-generated summary.`);
-                    // git commands remain as the locally-generated template above
+                    setTestResults("");
                 }
             } finally {
                 if (!cancelled) setSummarizing(false);
@@ -113,6 +128,48 @@ export default function IssueDashboardPage() {
         fetchSummary();
         return () => { cancelled = true; };
     }, [repoName, issueNumber, issue.title, issue.body, repo, user?.email]);
+
+    // Auto-fetch commits on mount
+    useEffect(() => {
+        if (!user?.email || !repoName || !issueNumber) return;
+        let isMounted = true;
+        const fetchCommitsOnMount = async () => {
+            setRefreshingCommits(true);
+            try {
+                const data = await novaAPI.fetchCommits(repoName, issueNumber, user?.email);
+                if (isMounted) {
+                    setCommits(data.commits || []);
+                    setForkDetected(data.fork_detected ?? false);
+                    setForkVscodeUrl(data.fork_vscode_url ?? null);
+                }
+            } catch (err) {
+                console.error("Auto-fetch commits failed:", err);
+            } finally {
+                if (isMounted) setRefreshingCommits(false);
+            }
+        };
+        fetchCommitsOnMount();
+        return () => { isMounted = false; };
+    }, [user?.email, repoName, issueNumber]);
+
+    // Auto-fetch testing steps on mount (always refresh for latest)
+    useEffect(() => {
+        if (!user?.email || !repoName || !issueNumber) return;
+        let isMounted = true;
+        const fetchStepsOnMount = async () => {
+            setIsRefreshingTestingSteps(true);
+            try {
+                const data = await novaAPI.fetchTestingSteps(repoName, parseInt(issueNumber), issue.title || '', issue.body || '', [], user?.email);
+                if (isMounted) setTestResults(data.testing_steps || '');
+            } catch (err) {
+                console.error("Auto-fetch testing steps failed:", err);
+            } finally {
+                if (isMounted) setIsRefreshingTestingSteps(false);
+            }
+        };
+        fetchStepsOnMount();
+        return () => { isMounted = false; };
+    }, [user?.email, repoName, issueNumber]);
 
     // Auto-save logic (debounced)
     useEffect(() => {
@@ -165,7 +222,8 @@ export default function IssueDashboardPage() {
             .then(data => {
                 setIssueSummary(data.summary || '');
                 setFinalApproach(data.approach || '');
-                setGitCommands(data.commands || '');
+                setTestResults(data.testing_steps || 'No testing steps provided.');
+                // git commands handled locally
             })
             .catch(err => setSummaryError(err.message || 'Retry failed'))
             .finally(() => setSummarizing(false));
@@ -190,6 +248,22 @@ export default function IssueDashboardPage() {
         }
     };
 
+    const handleRefreshTestingSteps = async () => {
+        setIsRefreshingTestingSteps(true);
+        const originalText = testResults;
+        setTestResults("fetching testing steps, please wait");
+        
+        try {
+            const data = await novaAPI.fetchTestingSteps(repoName, parseInt(issueNumber), issue.title || '', issue.body || '', [], user?.email);
+            setTestResults(data.testing_steps || 'No testing steps provided.');
+        } catch (err) {
+            showToast(err.message || 'Failed to fetch testing steps', 'error');
+            setTestResults(originalText);
+        } finally {
+            setIsRefreshingTestingSteps(false);
+        }
+    };
+
     const condensedIssues = allIssues.map(i => ({
         number: i.number, title: i.title, state: i.state, labels: i.labels || []
     }));
@@ -207,13 +281,8 @@ export default function IssueDashboardPage() {
                         <p className="text-text-muted text-xs">{repoName} · #{issueNumber}</p>
                     </div>
                 </div>
-                <VectrLogo size={32} />
+                <div className="flex-1" />
                 <div className="flex items-center gap-4">
-                    <button className="text-text-secondary hover:text-text-primary transition-colors" aria-label="Notifications">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                        </svg>
-                    </button>
                     <button 
                         onClick={saveProgress}
                         disabled={isSaving || summarizing}
@@ -246,9 +315,9 @@ export default function IssueDashboardPage() {
 
             {/* Content Grid */}
             <div className="p-4 grid grid-cols-1 lg:grid-cols-[2.5fr_5.7fr_3.8fr] gap-4" style={{ height: 'calc(100vh - 73px)' }}>
-                {/* Left Column — no column-level scroll; each card scrolls itself */}
-                <div className="space-y-4 flex flex-col">
-                    <div className="glass-card p-3">
+                {/* Left Column — each card is sticky and scrolls independently */}
+                <div className="flex flex-col gap-4 overflow-hidden">
+                    <div className="glass-card p-3 flex flex-col min-h-0" style={{ flex: '1 1 0' }}>
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
                                 <h3 className="text-sm font-semibold text-text-primary m-0 leading-none">Commits</h3>
@@ -260,8 +329,9 @@ export default function IssueDashboardPage() {
                                     title="Refresh commits"
                                 >
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                                         className={refreshingCommits ? "animate-spin" : ""}>
-                                        <path d="M21.5 2v6h-6M2.13 15.57a9 9 0 1 0 3.87-11.4l-4.14 1.34"/>
+                                         className={refreshingCommits ? "animate-reverse-spin" : ""}>
+                                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                        <path d="M3 3v5h5" />
                                     </svg>
                                 </button>
                             </div>
@@ -285,7 +355,7 @@ export default function IssueDashboardPage() {
                         )}
 
                         {/* Scrollable commits content */}
-                        <div className="block-scroll space-y-2">
+                        <div className="block-scroll flex-1 min-h-0 space-y-2">
                             {commits.length === 0 ? (
                                 <div className="py-4 space-y-3">
                                     {/* Fork link — always shown */}
@@ -328,7 +398,7 @@ export default function IssueDashboardPage() {
                         </div>
                     </div>
 
-                    <div className="glass-card p-3">
+                    <div className="glass-card p-3 flex flex-col min-h-0" style={{ flex: '1 1 0' }}>
                         <h3 className="text-sm font-semibold text-text-primary mb-3">Git Helper Commands</h3>
                         {summarizing ? (
                             <div className="space-y-2">
@@ -338,7 +408,7 @@ export default function IssueDashboardPage() {
                                 <div className="skeleton-shimmer h-4 w-2/3"></div>
                             </div>
                         ) : (
-                            <div className="block-scroll prose prose-invert prose-sm max-w-none text-xs text-text-muted">
+                            <div className="block-scroll flex-1 min-h-0 prose prose-invert prose-sm max-w-none text-xs text-text-muted">
                                 <ReactMarkdown
                                     remarkPlugins={[remarkGfm]}
                                     components={{
@@ -366,21 +436,42 @@ export default function IssueDashboardPage() {
                         )}
                     </div>
 
-                    <div className="glass-card p-3">
-                        <h3 className="text-sm font-semibold" style={{ color: '#f87171' }}>Test Results</h3>
-                        <div className="mt-2">
+                    <div className="glass-card p-3 flex flex-col min-h-0" style={{ flex: '1 1 0' }}>
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-sm font-semibold m-0" style={{ color: '#f87171' }}>Testing Steps</h3>
+                            <button 
+                                onClick={handleRefreshTestingSteps}
+                                disabled={isRefreshingTestingSteps}
+                                className="text-text-muted hover:text-accent-red transition-colors disabled:opacity-50"
+                                aria-label="Refresh testing steps"
+                                title="Refresh testing steps"
+                            >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={isRefreshingTestingSteps ? "animate-reverse-spin" : ""}>
+                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                    <path d="M3 3v5h5" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="mt-2 block-scroll flex-1 min-h-0">
                             {testResults ? (
-                                <pre className="block-scroll text-xs text-text-muted whitespace-pre-wrap bg-bg-input rounded-lg p-3">{testResults}</pre>
+                                <div className="text-sm leading-relaxed text-text-muted markdown-body pr-2">
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{testResults}</ReactMarkdown>
+                                </div>
+                            ) : (summarizing || isRefreshingTestingSteps) ? (
+                                <div className="flex flex-col items-center justify-center py-6 text-text-muted opacity-60">
+                                    <span className="spinner mb-2 border-accent-red"></span>
+                                    <p className="text-xs">Generating testing steps...</p>
+                                </div>
                             ) : (
-                                <p className="text-text-muted text-xs text-center py-6">No test results yet</p>
+                                <p className="text-text-muted text-xs text-center py-6">Click refresh to generate testing steps.</p>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* Center Column */}
-                <div className="space-y-4 flex flex-col">
-                    <div className="glass-card-accent p-4">
+                {/* Center Column — each card sticky with own scrollbar */}
+                <div className="flex flex-col gap-4 overflow-hidden">
+                    <div className="glass-card-accent p-4 flex flex-col min-h-0" style={{ flex: '1 1 0' }}>
                         <div className="flex items-center justify-between mb-3">
                             <h3 className="text-sm font-semibold text-text-primary">Issue Summary</h3>
                             <div className="flex items-center gap-2">
@@ -403,7 +494,7 @@ export default function IssueDashboardPage() {
                                 <div className="skeleton-shimmer h-4 w-2/3"></div>
                             </div>
                         ) : (
-                            <div className="block-scroll text-sm leading-relaxed max-w-none text-text-secondary markdown-body">
+                            <div className="block-scroll flex-1 min-h-0 text-sm leading-relaxed max-w-none text-text-secondary markdown-body">
                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{issueSummary}</ReactMarkdown>
                             </div>
                         )}
@@ -417,7 +508,7 @@ export default function IssueDashboardPage() {
                         )}
                     </div>
 
-                    <div className="glass-card p-4">
+                    <div className="glass-card p-4 flex flex-col min-h-0" style={{ flex: '1 1 0' }}>
                         <h3 className="text-sm font-semibold text-text-primary mb-3">Final Approach</h3>
                         <div className="text-sm text-text-secondary leading-relaxed">
                             {summarizing ? (
@@ -428,7 +519,7 @@ export default function IssueDashboardPage() {
                                     <div className="skeleton-shimmer h-4 w-3/4"></div>
                                 </div>
                             ) : finalApproach ? (
-                                <div className="block-scroll max-w-none markdown-body">
+                                <div className="block-scroll flex-1 min-h-0 max-w-none markdown-body">
                                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{finalApproach}</ReactMarkdown>
                                 </div>
                             ) : (

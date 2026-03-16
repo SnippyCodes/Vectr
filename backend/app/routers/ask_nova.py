@@ -12,6 +12,9 @@ from typing import List
 import re
 import requests as req
 from app.utils.encryption import decrypt_pat
+import time
+
+nova_testing_steps_locks = {}
 
 routes = APIRouter(prefix="/nova", tags=["Bedrock AI Chat"])
 
@@ -96,8 +99,44 @@ async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db
                 if progress.git_commands:
                     issue_details += f"Git Commands Used:\n{progress.git_commands}\n\n"
         
+    # Build PR context if available (Draft PR page)
+    pr_details = ""
+    if request.pr_context:
+        pr_details = f"\n\n--- CURRENT PULL REQUEST DRAFT ---\n"
+        pr_details += f"PR Title: {request.pr_context.pr_title}\n"
+        pr_details += f"PR Body:\n{request.pr_context.pr_body}\n"
+        pr_details += f"--- END PR DRAFT ---\n"
+        if request.pr_context.code_diff:
+            pr_details += f"\n--- CODE CHANGES (fork branch vs main) ---\n"
+            pr_details += f"{request.pr_context.code_diff}\n"
+            pr_details += f"--- END CODE CHANGES ---\n"
+        if request.pr_context.commits:
+            pr_details += f"\n--- COMMIT HISTORY ---\n"
+            pr_details += f"{request.pr_context.commits}\n"
+            pr_details += f"--- END COMMIT HISTORY ---\n"
+
     # Construct System Prompt with Context
-    if request.active_issue_number:
+    if request.pr_context and request.active_issue_number:
+        # Draft PR page context — Nova acts as a PR reviewer/editor
+        system_prompt = (
+            f"You are Vectr Nova, an expert open source contribution assistant and PR reviewer.\n"
+            f"The user is drafting a Pull Request for Issue #{request.active_issue_number} in the repository '{request.repo_name}'.\n\n"
+            f"{repo_analysis}"
+            f"{issue_details}"
+            f"{pr_details}"
+            f"Your goals:\n"
+            f"1. Help the user review and improve their Pull Request title and body.\n"
+            f"2. CRITICAL RULE: Whenever the user asks you to edit, improve, create, rewrite, or generate a PR (title and/or body), you MUST ALWAYS output a JSON block with the updated content. You MUST use this exact format:\n"
+            f"```json\n"
+            f"{{\"pr_title\": \"The updated title here\", \"pr_body\": \"The updated body in markdown here\"}}\n"
+            f"```\n"
+            f"3. Always include BOTH pr_title and pr_body keys in the JSON, even if only one changed.\n"
+            f"4. NEVER output the PR title or body as plain text. ALWAYS use the JSON block format above. The JSON block is automatically parsed and applied to the PR editor UI.\n"
+            f"5. After the JSON block, you may add a brief 1-2 sentence explanation of what you changed. Do NOT repeat the PR content outside the JSON.\n"
+            f"6. When NOT editing the PR (e.g. answering questions or giving advice), respond normally without any JSON block.\n"
+            f"7. Be concise, friendly, and highly technical in your answers."
+        )
+    elif request.active_issue_number:
         system_prompt = (
             f"You are Vectr Nova, an expert open source contribution assistant.\n"
             f"The user is actively working on Issue #{request.active_issue_number} in the repository '{request.repo_name}'.\n\n"
@@ -133,25 +172,85 @@ async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db
         
     # Bedrock Nova request body format
     # Reference: https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-nova.html
+    max_tokens = 4000 if request.pr_context else 1000
     body = {
         "system": [{"text": system_prompt}],
         "messages": formatted_messages,
         "inferenceConfig": {
-            "maxTokens": 1000,
+            "maxTokens": max_tokens,
             "temperature": 0.5,
             "topP": 0.9,
         }
     }
     
+    def _try_parse_json(text_block: str):
+        """Try to parse a JSON block, handling common issues."""
+        text_block = text_block.strip()
+        # Strip markdown code fences if present
+        if text_block.startswith("```"):
+            # Remove opening fence (```json or ```)
+            first_newline = text_block.find("\n")
+            if first_newline != -1:
+                text_block = text_block[first_newline+1:]
+            # Remove closing fence
+            if text_block.rstrip().endswith("```"):
+                text_block = text_block.rstrip()[:-3].rstrip()
+        try:
+            return json.loads(text_block)
+        except Exception:
+            return None
+
+    def _extract_json_from_text(text: str):
+        """Extract JSON object from text using multiple strategies."""
+        # Strategy 1: Find ```json ... ``` blocks (handle nested backticks by finding last ```)
+        json_block_pattern = re.search(r'```json\s*\n?(.*?)```', text, re.DOTALL)
+        if json_block_pattern:
+            raw = json_block_pattern.group(1).strip()
+            parsed = _try_parse_json(raw)
+            if parsed and isinstance(parsed, dict):
+                return parsed, json_block_pattern.start(), json_block_pattern.end()
+        
+        # Strategy 2: Find ``` ... ``` blocks that contain JSON-like content  
+        code_block_pattern = re.search(r'```\s*\n?(.*?)```', text, re.DOTALL)
+        if code_block_pattern:
+            raw = code_block_pattern.group(1).strip()
+            if raw.startswith("{"):
+                parsed = _try_parse_json(raw)
+                if parsed and isinstance(parsed, dict):
+                    return parsed, code_block_pattern.start(), code_block_pattern.end()
+        
+        # Strategy 3: Find raw JSON with pr_title or pr_body keys
+        # Look for { ... } that contains "pr_title" or "pr_body"
+        for match in re.finditer(r'\{', text):
+            start = match.start()
+            # Find the matching closing brace by counting
+            depth = 0
+            for i in range(start, len(text)):
+                if text[i] == '{':
+                    depth += 1
+                elif text[i] == '}':
+                    depth -= 1
+                    if depth == 0:
+                        candidate = text[start:i+1]
+                        if '"pr_title"' in candidate or '"pr_body"' in candidate or '"finalized_approach"' in candidate:
+                            parsed = _try_parse_json(candidate)
+                            if parsed and isinstance(parsed, dict):
+                                return parsed, start, i+1
+                        break
+        
+        return None, -1, -1
+
     def process_reply(text: str):
         updated_appr = None
-        match = re.search(r'```json\s*(\{.*?\})\s*```', text, re.DOTALL)
-        if match:
+        updated_pr_data = None
+        
+        data, start_idx, end_idx = _extract_json_from_text(text)
+        
+        if data:
             try:
-                data = json.loads(match.group(1))
                 if "finalized_approach" in data:
                     updated_appr = data["finalized_approach"]
-                    text = text[:match.start()] + text[match.end():]
+                    text = text[:start_idx] + text[end_idx:]
                     
                     if request.user_email and request.active_issue_number:
                         prog = db.query(models.ContributionProgress).filter(
@@ -162,9 +261,30 @@ async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db
                         if prog:
                             prog.final_approach = updated_appr
                             db.commit()
-            except Exception:
-                pass
-        return text.strip(), updated_appr
+                elif "pr_title" in data or "pr_body" in data:
+                    updated_pr_data = {}
+                    if "pr_title" in data:
+                        updated_pr_data["pr_title"] = data["pr_title"]
+                    if "pr_body" in data:
+                        updated_pr_data["pr_body"] = data["pr_body"]
+                    text = text[:start_idx] + text[end_idx:]
+                    
+                    # Save to DB
+                    if request.user_email and request.active_issue_number:
+                        prog = db.query(models.ContributionProgress).filter(
+                            models.ContributionProgress.user_email == request.user_email,
+                            models.ContributionProgress.repo_name == request.repo_name,
+                            models.ContributionProgress.issue_number == request.active_issue_number
+                        ).first()
+                        if prog:
+                            if "pr_title" in updated_pr_data:
+                                prog.pr_title = updated_pr_data["pr_title"]
+                            if "pr_body" in updated_pr_data:
+                                prog.pr_body = updated_pr_data["pr_body"]
+                            db.commit()
+            except Exception as e:
+                print(f"process_reply error: {e}")
+        return text.strip(), updated_appr, updated_pr_data
 
     try:
         endpoint_url = os.getenv("AWS_ENDPOINT_URL")
@@ -187,8 +307,12 @@ async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db
             res = req.post(ollama_url, json=payload)
             res.raise_for_status()
             reply_text = res.json().get('message', {}).get('content', "Ollama couldn't generate a response.")
-            reply_text, updated_approach = process_reply(reply_text)
-            return schemas.AskNovaResponse(reply=reply_text, updated_approach=updated_approach)
+            reply_text, updated_approach, updated_pr_result = process_reply(reply_text)
+            return schemas.AskNovaResponse(
+                reply=reply_text, 
+                updated_approach=updated_approach,
+                updated_pr=schemas.UpdatedPR(**updated_pr_result) if updated_pr_result else None
+            )
             
         else:
             body = {
@@ -204,8 +328,12 @@ async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db
             )
             response_body = json.loads(response.get('body').read())
             reply_text = response_body.get('output', {}).get('message', {}).get('content', [{}])[0].get('text', "")
-            reply_text, updated_approach = process_reply(reply_text)
-            return schemas.AskNovaResponse(reply=reply_text, updated_approach=updated_approach)
+            reply_text, updated_approach, updated_pr_result = process_reply(reply_text)
+            return schemas.AskNovaResponse(
+                reply=reply_text, 
+                updated_approach=updated_approach,
+                updated_pr=schemas.UpdatedPR(**updated_pr_result) if updated_pr_result else None
+            )
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI invocation error: {str(e)}")
@@ -261,6 +389,7 @@ async def summarize_issue(request: schemas.SummarizeIssueRequest, background_tas
         return schemas.SummarizeIssueResponse(
             summary=request.issue_body or "No issue description provided.",
             approach="Please set USE_NOVA=True in the backend environment to enable AI-powered approach suggestions.",
+            testing_steps="Manually test your changes locally before submitting a PR.",
             commands=programmatic_commands
         )
 
@@ -306,10 +435,11 @@ async def summarize_issue(request: schemas.SummarizeIssueRequest, background_tas
     Discussion/Comments:
     {discussion}
     
-    Your task is to analyze this issue and output a RAW JSON object with NO markdown formatting, NO backticks, and NO conversational text. It MUST contain exactly these 2 keys:
+    Your task is to analyze this issue and output a RAW JSON object with NO markdown formatting, NO backticks, and NO conversational text. It MUST contain exactly these 3 keys:
     {{
         "summary": "A 2-3 sentence overview of what the bug/feature is.",
-        "approach": "A step-by-step logical explanation of how to fix this, noting what files to check."
+        "approach": "A step-by-step logical explanation of how to fix this, noting what files to check.",
+        "testing_steps": "A step-by-step guide on how to test this fix locally."
     }}
     """
 
@@ -362,16 +492,162 @@ async def summarize_issue(request: schemas.SummarizeIssueRequest, background_tas
 
         parsed_json = json.loads(reply_text)
 
-        # 5. Return the exact matching schema back to the frontend
+        # 5. Save testing_steps to DB
+        testing_steps_text = parsed_json.get("testing_steps", "Testing steps not generated.")
+        try:
+            progress = db.query(models.ContributionProgress).filter(
+                models.ContributionProgress.user_email == request.user_email,
+                models.ContributionProgress.repo_name == request.repo_name,
+                models.ContributionProgress.issue_number == request.issue_number
+            ).first()
+            if progress:
+                progress.test_results = testing_steps_text
+            else:
+                progress = models.ContributionProgress(
+                    user_email=request.user_email,
+                    repo_name=request.repo_name,
+                    issue_number=request.issue_number,
+                    test_results=testing_steps_text
+                )
+                db.add(progress)
+            db.commit()
+        except Exception as save_err:
+            print(f"Failed to save testing_steps from summarize: {save_err}")
+
+        # 6. Return the exact matching schema back to the frontend
         return schemas.SummarizeIssueResponse(
             summary=parsed_json.get("summary", "Summary not generated."),
             approach=parsed_json.get("approach", "Approach not generated."),
+            testing_steps=testing_steps_text,
             commands=programmatic_commands
         )
 
     except json.JSONDecodeError:
          raise HTTPException(status_code=500, detail="Nova failed to format the response as JSON.")
     except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bedrock invocation error: {str(e)}")
+
+
+@routes.post("/testing-steps", response_model=schemas.FetchTestingStepsResponse)
+async def fetch_testing_steps(request: schemas.FetchTestingStepsRequest, db: Session = Depends(get_db)):
+    key = f"{request.user_email}_{request.repo_name}_{request.issue_number}"
+    now = time.time()
+    last_req = nova_testing_steps_locks.get(key, 0)
+    
+    if now - last_req < 15:
+        # Ignore request to prevent Nova charges, but wait so the frontend displays "fetching testing steps, please wait"
+        await asyncio.sleep(5)
+        progress = db.query(models.ContributionProgress).filter(
+            models.ContributionProgress.user_email == request.user_email,
+            models.ContributionProgress.repo_name == request.repo_name,
+            models.ContributionProgress.issue_number == request.issue_number
+        ).first()
+        return schemas.FetchTestingStepsResponse(
+            testing_steps=progress.test_results if (progress and progress.test_results) else "Nova is busy, check after a moment."
+        )
+
+    nova_testing_steps_locks[key] = now
+    
+    progress = db.query(models.ContributionProgress).filter(
+        models.ContributionProgress.user_email == request.user_email,
+        models.ContributionProgress.repo_name == request.repo_name,
+        models.ContributionProgress.issue_number == request.issue_number
+    ).first()
+    
+    valid_test_results = progress and progress.test_results and "Nova is busy" not in progress.test_results and "Manually test" not in progress.test_results and "No testing steps provided" not in progress.test_results
+    if valid_test_results:
+        await asyncio.sleep(1)
+        return schemas.FetchTestingStepsResponse(testing_steps=progress.test_results)
+        
+    if os.getenv("USE_NOVA", "True").lower() == "false":
+        st = "Manually test your changes locally before submitting a PR."
+        if progress:
+            progress.test_results = st
+            db.commit()
+        return schemas.FetchTestingStepsResponse(testing_steps=st)
+        
+    client = get_bedrock_client()
+    if not client:
+        raise HTTPException(status_code=500, detail="Failed to initialize AWS Bedrock Client.")
+
+    discussion = "\n".join(request.comments) if request.comments else "No comments on this issue yet."
+    
+    system_prompt = f"""
+    You are Vectr Nova, an expert AI coding assistant. The user wants to start working on Issue #{request.issue_number} titled "{request.issue_title}" in repository '{request.repo_name}'.
+    
+    Issue Description: 
+    {request.issue_body}
+    
+    Discussion/Comments:
+    {discussion}
+    
+    Your task is to analyze this issue and output a RAW JSON object with NO markdown formatting, NO backticks, and NO conversational text. It MUST contain exactly 1 key:
+    {{
+        "testing_steps": "A step-by-step guide on how to test this fix locally."
+    }}
+    """
+    
+    body = {
+        "system": [{"text": system_prompt}],
+        "messages": [{"role": "user", "content": [{"text": "Please provide the testing steps JSON."}]}],
+        "inferenceConfig": {
+            "temperature": 0.2, 
+            "topP": 0.9,
+            "maxTokens": 1000
+        }
+    }
+    
+    try:
+        endpoint_url = os.getenv("AWS_ENDPOINT_URL")
+        if endpoint_url and ("localhost" in endpoint_url or "127.0.0.1" in endpoint_url):
+            ollama_url = "http://127.0.0.1:11434/api/chat"
+            payload = {
+                "model": "amazon.nova-2-lite:v1.0",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": "Please provide the testing steps JSON."}
+                ],
+                "stream": False,
+                "options": {"temperature": 0.2, "top_p": 0.9}
+            }
+            res = req.post(ollama_url, json=payload)
+            res.raise_for_status()
+            reply_text = res.json().get('message', {}).get('content', "")
+        else:
+            response = client.invoke_model(
+                modelId=os.getenv("NOVA_MODEL_ID", "amazon.nova-lite-v1:0"),
+                body=json.dumps(body),
+                accept="application/json",
+                contentType="application/json"
+            )
+            response_body = json.loads(response.get('body').read())
+            reply_text = response_body.get('output', {}).get('message', {}).get('content', [{}])[0].get('text', "")
+
+        reply_text = reply_text.strip()
+        if reply_text.startswith("```json"): reply_text = reply_text[7:-3].strip()
+        elif reply_text.startswith("```"): reply_text = reply_text[3:-3].strip()
+
+        parsed_json = json.loads(reply_text)
+        testing_steps = parsed_json.get("testing_steps", "Testing steps not generated.")
+        
+        if progress:
+            progress.test_results = testing_steps
+            db.commit()
+        else:
+            new_progress = models.ContributionProgress(
+                user_email=request.user_email,
+                repo_name=request.repo_name,
+                issue_number=request.issue_number,
+                test_results=testing_steps
+            )
+            db.add(new_progress)
+            db.commit()
+            
+        return schemas.FetchTestingStepsResponse(testing_steps=testing_steps)
+        
+    except Exception as e:
+        print(f"Nova error: {str(e)}")
+        nova_testing_steps_locks[key] = 0
         raise HTTPException(status_code=500, detail=f"Bedrock invocation error: {str(e)}")
 
 # Commits Route

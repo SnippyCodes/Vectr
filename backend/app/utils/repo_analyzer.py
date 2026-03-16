@@ -198,18 +198,21 @@ async def evaluate_local_commits(repo_name: str, issue_number: int, user_email: 
     # Securely retrieve PAT and GitHub Username
     github_username = None
     pat = None
+    decrypted_pat = None
     try:
         import requests as req
+        from app.utils.encryption import decrypt_pat
         user_record = db.query(models.User).filter(models.User.email == user_email).first()
         if user_record and user_record.github_pat:
             pat = user_record.github_pat
-            res = req.get("https://api.github.com/user", headers={"Authorization": f"Bearer {pat}"})
+            decrypted_pat = decrypt_pat(pat)
+            res = req.get("https://api.github.com/user", headers={"Authorization": f"Bearer {decrypted_pat}"})
             if res.status_code == 200:
                 github_username = res.json().get("login")
     except Exception as e:
         print(f"Error fetching github username for evaluation route: {e}")
         
-    if not github_username or not pat:
+    if not github_username or not decrypted_pat:
         return ""
         
     repo_dir = os.path.join(WORKSPACES_DIR, f"{github_username}_{repo_short_name}")
@@ -218,7 +221,7 @@ async def evaluate_local_commits(repo_name: str, issue_number: int, user_email: 
         # User hasn't made a Vectr-synced clone of their fork yet, let's clone it now
         if not os.path.exists(WORKSPACES_DIR):
             os.makedirs(WORKSPACES_DIR)
-        clone_url = f"https://{pat}@github.com/{github_username}/{repo_short_name}.git"
+        clone_url = f"https://{decrypted_pat}@github.com/{github_username}/{repo_short_name}.git"
         code, out, err = await run_cmd_async(f"git clone {clone_url} {os.path.basename(repo_dir)}", cwd=WORKSPACES_DIR)
         if code != 0:
              return ""
@@ -292,3 +295,91 @@ async def evaluate_local_commits(repo_name: str, issue_number: int, user_email: 
         f"If there are errors, guide them on how to fix the code."
     )
     return evaluation
+
+async def get_local_diff_stat(repo_name: str, issue_number: int, user_email: str, db: Session) -> str:
+    """Gets the git diff --stat for the user's issue branch against the default branch."""
+    repo_short_name = repo_name.split('/')[-1] if '/' in repo_name else repo_name
+    
+    github_username = None
+    try:
+        import requests as req
+        from app.utils.encryption import decrypt_pat
+        user_record = db.query(models.User).filter(models.User.email == user_email).first()
+        if user_record and user_record.github_pat:
+            decrypted_pat = decrypt_pat(user_record.github_pat)
+            res = req.get("https://api.github.com/user", headers={"Authorization": f"Bearer {decrypted_pat}"})
+            if res.status_code == 200:
+                github_username = res.json().get("login")
+    except Exception as e:
+        print(f"Error fetching github username for diff stat route: {e}")
+        
+    if not github_username:
+        return "Failed to authenticate with GitHub."
+        
+    repo_dir = os.path.join(WORKSPACES_DIR, f"{github_username}_{repo_short_name}")
+    
+    if not os.path.exists(repo_dir):
+        return "No local checkout found. Make sure you have opened this issue in VS Code."
+             
+    branch_name = f"fix/issue-{issue_number}"
+    
+    code, def_branch_out, err = await run_cmd_async("git symbolic-ref refs/remotes/origin/HEAD", cwd=repo_dir)
+    if code != 0:
+         default_branch = "main"
+    else:
+         default_branch = def_branch_out.strip().split('/')[-1]
+
+    # Just run git diff --stat to get files and lines changed
+    code, diff_out, err = await run_cmd_async(f"git diff --stat {default_branch}...{branch_name}", cwd=repo_dir)
+    
+    if not diff_out.strip() or code != 0:
+        return "No code changes detected yet."
+        
+    return diff_out.strip()
+
+
+async def get_local_diff_patch(repo_name: str, issue_number: int, user_email: str, db: Session) -> str:
+    """Gets the full git diff (patch) for the user's issue branch against the default branch."""
+    repo_short_name = repo_name.split('/')[-1] if '/' in repo_name else repo_name
+    
+    github_username = None
+    try:
+        import requests as req
+        from app.utils.encryption import decrypt_pat
+        user_record = db.query(models.User).filter(models.User.email == user_email).first()
+        if user_record and user_record.github_pat:
+            decrypted_pat = decrypt_pat(user_record.github_pat)
+            res = req.get("https://api.github.com/user", headers={"Authorization": f"Bearer {decrypted_pat}"})
+            if res.status_code == 200:
+                github_username = res.json().get("login")
+    except Exception as e:
+        print(f"Error fetching github username for diff patch: {e}")
+        
+    if not github_username:
+        return ""
+        
+    repo_dir = os.path.join(WORKSPACES_DIR, f"{github_username}_{repo_short_name}")
+    
+    if not os.path.exists(repo_dir):
+        return ""
+             
+    branch_name = f"fix/issue-{issue_number}"
+    
+    code, def_branch_out, err = await run_cmd_async("git symbolic-ref refs/remotes/origin/HEAD", cwd=repo_dir)
+    if code != 0:
+         default_branch = "main"
+    else:
+         default_branch = def_branch_out.strip().split('/')[-1]
+
+    code, diff_out, err = await run_cmd_async(f"git diff {default_branch}...{branch_name}", cwd=repo_dir)
+    
+    if not diff_out.strip() or code != 0:
+        return ""
+    
+    # Truncate to avoid overwhelming Nova's context
+    full_diff = diff_out.strip()
+    if len(full_diff) > 8000:
+        full_diff = full_diff[:8000] + "\n\n... (diff truncated, showing first 8000 chars)"
+        
+    return full_diff
+

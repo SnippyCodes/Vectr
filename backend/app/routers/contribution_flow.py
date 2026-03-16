@@ -128,13 +128,67 @@ def start_contribution(
         raise HTTPException(status_code=500, detail=f"Error fetching organizations: {str(e)}")
 
 @routes.post("/submit-pr")
-def submit_pr(req: schemas.SubmitPRRequest, db: Session = Depends(get_db)):
+async def submit_pr(req: schemas.SubmitPRRequest, db: Session = Depends(get_db)):
     # 1. Verify User
     user = db.query(models.User).filter(models.User.email == req.user_email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User Not Found")
+    if not user or not user.github_pat:
+        raise HTTPException(status_code=404, detail="User not found or GitHub PAT missing")
 
-    # 2. Add or Update Contributions 
+    from app.utils.encryption import decrypt_pat
+    decrypted_pat = decrypt_pat(user.github_pat)
+
+    # 2. Get GitHub username
+    import requests as req_http
+    res = req_http.get("https://api.github.com/user", headers={"Authorization": f"Bearer {decrypted_pat}", "Accept": "application/vnd.github.v3+json"})
+    if res.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid GitHub PAT token.")
+    github_username = res.json().get("login")
+
+    # 3. Locate workspace
+    import os
+    from app.utils.repo_analyzer import run_cmd_async, WORKSPACES_DIR
+    repo_short_name = req.repo_name.split('/')[-1] if '/' in req.repo_name else req.repo_name
+    repo_dir = os.path.join(WORKSPACES_DIR, f"{github_username}_{repo_short_name}")
+    if not os.path.exists(repo_dir):
+        raise HTTPException(status_code=404, detail="Local repository workspace not found")
+
+    branch_name = f"fix/issue-{req.issue_number}"
+
+    # 4. Push local branch to user's fork (origin)
+    code, out, err = await run_cmd_async(f"git push origin {branch_name}", cwd=repo_dir)
+    if code != 0:
+        raise HTTPException(status_code=500, detail=f"Failed to push branch to GitHub: {err}")
+
+    # 5. Get default branch of upstream repo to know where to open the PR against
+    code, def_branch_out, err = await run_cmd_async("git symbolic-ref refs/remotes/upstream/HEAD", cwd=repo_dir)
+    default_branch = "main"
+    if code == 0:
+         default_branch = def_branch_out.strip().split('/')[-1]
+    else:
+        # Fallback to checking origin if upstream remote isn't set
+        code, def_branch_out, err = await run_cmd_async("git symbolic-ref refs/remotes/origin/HEAD", cwd=repo_dir)
+        if code == 0:
+             default_branch = def_branch_out.strip().split('/')[-1]
+
+    # 6. Create PR via GitHub API
+    pr_payload = {
+        "title": req.title,
+        "body": req.body,
+        "head": f"{github_username}:{branch_name}", # User's fork namespace
+        "base": default_branch
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {decrypted_pat}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    pr_res = req_http.post(f"https://api.github.com/repos/{req.repo_name}/pulls", headers=headers, json=pr_payload)
+    
+    if pr_res.status_code not in (201, 422): # 422 means PR might already exist
+        raise HTTPException(status_code=pr_res.status_code, detail=f"Failed to create PR: {pr_res.text}")
+
+    # 7. Update Contributions DB
     contrib = db.query(models.Contributions).filter(
         models.Contributions.user_email == req.user_email,
         models.Contributions.repo_name == req.repo_name,
@@ -142,7 +196,7 @@ def submit_pr(req: schemas.SubmitPRRequest, db: Session = Depends(get_db)):
     ).first()
 
     if contrib:
-        contrib.status = "Waiting"
+        contrib.status = "Submitted"
         contrib.pr_sent = True
     else:
         new_contrib = models.Contributions(
@@ -151,11 +205,33 @@ def submit_pr(req: schemas.SubmitPRRequest, db: Session = Depends(get_db)):
             issue_number=req.issue_number,
             issue_title=req.title or f"Issue #{req.issue_number}",
             language="Unknown",
-            status="Waiting",
+            status="Submitted",
             pr_sent=True
         )
         db.add(new_contrib)
 
+    # Finally, mark progress DB as PR completed
+    prog = db.query(models.ContributionProgress).filter(
+        models.ContributionProgress.user_email == req.user_email,
+        models.ContributionProgress.repo_name == req.repo_name,
+        models.ContributionProgress.issue_number == req.issue_number
+    ).first()
+    if prog:
+        prog.pr_status = "submitted"
+
     db.commit()
 
-    return {"detail": "PR submitted successfully", "status": "Waiting"}
+    return {"detail": "PR submitted successfully", "html_url": pr_res.json().get("html_url") if pr_res.status_code == 201 else None}
+
+@routes.get("/draft-pr-diff")
+async def get_draft_pr_diff(
+    user_email: str = Query(...),
+    repo_name: str = Query(...),
+    issue_number: int = Query(...),
+    db: Session = Depends(get_db)
+):
+    from app.utils.repo_analyzer import get_local_diff_stat, get_local_diff_patch
+    diff_stat = await get_local_diff_stat(repo_name, issue_number, user_email, db)
+    diff_patch = await get_local_diff_patch(repo_name, issue_number, user_email, db)
+    return {"diff_stat": diff_stat, "diff_patch": diff_patch}
+

@@ -15,24 +15,26 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [navigatingTo, setNavigatingTo] = useState(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const loadDashboard = async (showRefresh = false) => {
+        if (!user?.email) return;
+        if (showRefresh) setIsRefreshing(true);
+        
+        try {
+            const data = await dashboardAPI.get(user.email);
+            setDashboard(data);
+            setError('');
+        } catch (err) {
+            setError(err.message || 'Failed to load dashboard');
+        } finally {
+            if (showRefresh) setIsRefreshing(false);
+            else setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        if (!user?.email) return;
-        let cancelled = false;
-
-        const fetchDashboard = async () => {
-            try {
-                const data = await dashboardAPI.get(user.email);
-                if (!cancelled) setDashboard(data);
-            } catch (err) {
-                if (!cancelled) setError(err.message || 'Failed to load dashboard');
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        };
-
-        fetchDashboard();
-        return () => { cancelled = true; };
+        loadDashboard();
     }, [user?.email]);
 
     const handleIssueClick = async (repoName, issueNum, blockType) => {
@@ -87,11 +89,6 @@ export default function DashboardPage() {
                 </div>
                 <VectrLogo size={32} />
                 <div className="flex items-center gap-4">
-                    <button className="text-text-secondary hover:text-text-primary transition-colors relative" aria-label="Notifications">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                        </svg>
-                    </button>
                     <button onClick={() => navigate(ROUTES.CONTRIBUTE)} className="btn-primary text-sm" id="start-contributing-btn">
                         Start Contributing
                     </button>
@@ -109,16 +106,37 @@ export default function DashboardPage() {
             )}
 
             {/* Dashboard Grid */}
-            <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="px-4 pb-4 grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ height: 'calc(100vh - 100px)' }}>
                 {/* Left Column — My Contributions */}
-                <div className="lg:col-span-2">
+                <div className="lg:col-span-2 flex flex-col min-h-0">
                     {loading ? <CardSkeleton rows={3} /> : (
-                        <div className="glass-card p-4 h-full">
+                        <div className="glass-card p-4 flex flex-col flex-1 min-h-0">
                             <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-semibold text-text-primary">My Contributions</h2>
-                                <span className="text-text-muted text-xs">{contributions.length} total</span>
+                                <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                                    My Contributions
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); loadDashboard(true); }}
+                                        disabled={isRefreshing}
+                                        className="p-1.5 rounded-md hover:bg-white/10 text-text-muted hover:text-text-primary transition-colors disabled:opacity-50"
+                                        title="Refresh status"
+                                    >
+                                        <svg className={isRefreshing ? "animate-reverse-spin" : ""} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                            <path d="M3 3v5h5"/>
+                                        </svg>
+                                    </button>
+                                </h2>
+                                <span className="text-text-muted text-xs flex items-center min-h-[16px]">
+                                    {isRefreshing ? (
+                                        <span className="dot-wave text-text-muted">
+                                            <span></span><span></span><span></span>
+                                        </span>
+                                    ) : (
+                                        `${contributions.length} total`
+                                    )}
+                                </span>
                             </div>
-                            <div className="space-y-3">
+                            <div className="space-y-3 overflow-y-auto block-scroll flex-1 min-h-0 pr-2 pb-2">
                                 {contributions.length === 0 ? (
                                     <div className="text-center py-16 text-text-muted">
                                         <div className="text-4xl mb-3">🚀</div>
@@ -160,15 +178,15 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Right Column */}
-                <div className="space-y-6">
+                <div className="flex flex-col gap-4 min-h-0">
                     {/* Working Issues */}
                     {loading ? <CardSkeleton rows={2} /> : (
-                        <div className="glass-card p-4">
-                            <div className="flex items-center justify-between mb-4">
+                        <div className="glass-card p-4 flex flex-col flex-1 min-h-0">
+                            <div className="flex items-center justify-between mb-4 shrink-0">
                                 <h2 className="text-lg font-semibold text-text-primary">Working Issues</h2>
                                 <span className="text-text-muted text-xs">{workingIssues.length}</span>
                             </div>
-                            <div className="space-y-3">
+                            <div className="space-y-3 overflow-y-auto block-scroll flex-1 min-h-0 pr-1">
                                 {workingIssues.length === 0 ? (
                                     <p className="text-text-muted text-sm text-center py-6">No active issues</p>
                                 ) : (
@@ -206,19 +224,19 @@ export default function DashboardPage() {
                     )}
 
                     {/* Commit Map */}
-                    <div className="glass-card p-4">
+                    <div className="glass-card p-4 shrink-0">
                         <h2 className="text-lg font-semibold text-text-primary mb-4">Commit Map</h2>
                         <CommitMap data={commitData} />
                     </div>
 
                     {/* Pull Requests */}
                     {loading ? <CardSkeleton rows={2} /> : (
-                        <div className="glass-card p-4">
-                            <div className="flex items-center justify-between mb-4">
+                        <div className="glass-card p-4 flex flex-col flex-1 min-h-0">
+                            <div className="flex items-center justify-between mb-4 shrink-0">
                                 <h2 className="text-lg font-semibold text-text-primary">Pull Requests</h2>
                                 <span className="text-text-muted text-xs">{pullRequests.length}</span>
                             </div>
-                            <div className="space-y-3">
+                            <div className="space-y-3 overflow-y-auto block-scroll flex-1 min-h-0 pr-1">
                                 {pullRequests.length === 0 ? (
                                     <p className="text-text-muted text-sm text-center py-6">No pull requests yet</p>
                                 ) : (

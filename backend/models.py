@@ -48,5 +48,7 @@ class ContributionProgress(Base):
     chat_history = Column(String)
     fork_status = Column(String, default="pending")  # pending | available
     fork_vscode_url = Column(String, nullable=True)
+    pr_title = Column(String, nullable=True)
+    pr_body = Column(String, nullable=True)
 
 

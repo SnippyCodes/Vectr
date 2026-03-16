@@ -111,6 +111,15 @@ export const contributionAPI = {
             title,
             body
         }).then(r => r.data),
+
+    getDiff: (email, repoName, issueNumber) => {
+        const params = new URLSearchParams({ 
+            user_email: email, 
+            repo_name: repoName, 
+            issue_number: issueNumber 
+        });
+        return api.get(`/contribution/draft-pr-diff?${params}`).then(r => r.data);
+    },
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -134,17 +143,28 @@ export const repoAPI = {
 // ═══════════════════════════════════════════════════════════════════
 
 export const novaAPI = {
-    ask: (repoName, issuesContext, messages, activeIssueNumber = null, userEmail = null) =>
+    ask: (repoName, issuesContext, messages, activeIssueNumber = null, userEmail = null, prContext = null) =>
         api.post('/nova/ask', {
             repo_name: repoName,
             issues_context: issuesContext,
             messages,
             active_issue_number: activeIssueNumber ? parseInt(activeIssueNumber) : null,
-            user_email: userEmail
+            user_email: userEmail,
+            pr_context: prContext
         }).then(r => r.data),
 
     summarize: (repoName, issueNumber, issueTitle, issueBody, comments = [], userEmail = null) =>
         api.post('/nova/summarize', {
+            repo_name: repoName,
+            issue_number: issueNumber,
+            issue_title: issueTitle,
+            issue_body: issueBody || '',
+            comments,
+            user_email: userEmail
+        }).then(r => r.data),
+        
+    fetchTestingSteps: (repoName, issueNumber, issueTitle, issueBody, comments = [], userEmail = null) =>
+        api.post('/nova/testing-steps', {
             repo_name: repoName,
             issue_number: issueNumber,
             issue_title: issueTitle,

@@ -121,14 +121,42 @@ def user_dashboard(email: str, db: Session = Depends(get_db)):
                     )
                 )
                 
-            # If a PR has been generated/submitted, it usually has a specific status like "Waiting" or "Reviewed"
-            if contrib.status and contrib.status.lower() in ["waiting", "submitted", "in review"]:
+            # Dynamic PR Status checking for submitted PRs
+            if contrib.pr_sent and contrib.status and contrib.status.lower() in ["waiting", "submitted", "in review", "done"]:
+                try:
+                    pr_head = f"{github_username}:fix/issue-{contrib.issue_number}"
+                    pr_check_url = f"https://api.github.com/repos/{contrib.repo_name}/pulls?head={pr_head}&state=all"
+                    pr_res = rq.get(pr_check_url, headers=headers)
+                    if pr_res.status_code == 200:
+                        prs = pr_res.json()
+                        if prs and len(prs) > 0:
+                            pr_data = prs[0]
+                            if pr_data.get("merged_at"):
+                                contrib.status = "Accepted"
+                                db.commit()
+                            elif pr_data.get("state") == "closed":
+                                contrib.status = "Rejected"
+                                db.commit()
+                            else:
+                                contrib.status = "Waiting" # standardize ongoing PRs
+                                db.commit()
+                        elif contrib.status.lower() == "done":
+                            # Auto-heal "Done" if no PR exists
+                            contrib.status = "Submitted"
+                            db.commit()
+                except Exception as e:
+                    print(f"Error checking PR status for {contrib.repo_name} #{contrib.issue_number}: {e}")
+
+            # Include any PRs in the list
+            if contrib.pr_sent or (contrib.status and contrib.status.lower() in ["waiting", "submitted", "in review", "accepted", "rejected", "done"]):
+                 # Use the DB status after dynamic update
+                 display_status = contrib.status if contrib.status else "Unknown"
                  pull_requests.append(
                      schemas.PullRequestItem(
                          repo_name=contrib.repo_name,
                          issue_title=f"#{contrib.issue_number}: {contrib.issue_title}",
                          date_of_submission="Recent",  # We don't have a date column in Contributions yet
-                         status=contrib.status.capitalize()
+                         status=display_status.capitalize() if display_status.lower() not in ["in progress", "in review", "currently working"] else display_status.title()
                      )
                  )
 

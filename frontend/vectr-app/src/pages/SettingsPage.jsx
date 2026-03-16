@@ -1,16 +1,34 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { patAPI } from '../services/api';
+import { patAPI, authAPI } from '../services/api';
 import { useToast } from '../components/Toast';
+import { ROUTES, EXPERIENCE_LEVELS } from '../constants';
 
 export default function SettingsPage() {
-    const { user, updateUser } = useAuth();
+    const { user, updateUser, logout } = useAuth();
+    const navigate = useNavigate();
     const { showToast } = useToast();
     
     const [pat, setPat] = useState('');
     const [showPat, setShowPat] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [updatingExp, setUpdatingExp] = useState(false);
+
+    const handleExperienceChange = async (e) => {
+        const newLevel = e.target.value;
+        setUpdatingExp(true);
+        try {
+            await authAPI.updateExperience(user.email, newLevel);
+            updateUser({ experienceLevel: newLevel });
+            showToast('Experience level updated successfully!', 'success');
+        } catch (err) {
+            showToast(err.message || 'Failed to update experience level.', 'error');
+        } finally {
+            setUpdatingExp(false);
+        }
+    };
 
     const handleUpdatePat = async () => {
         const trimmed = pat.trim();
@@ -35,7 +53,13 @@ export default function SettingsPage() {
             setError(err.message || 'Failed to update PAT. Please check and try again.');
         } finally {
             setLoading(false);
+            setLoading(false);
         }
+    };
+
+    const handleLogout = () => {
+        logout();
+        navigate(ROUTES.LOGIN);
     };
 
     return (
@@ -114,8 +138,34 @@ export default function SettingsPage() {
                     </div>
                     <div>
                         <p className="text-sm text-text-muted mb-1">Experience Level</p>
-                        <p className="text-text-primary font-medium">{user?.experienceLevel || 'Not set'}</p>
+                        <div className="flex items-center gap-3">
+                            <select 
+                                value={user?.experienceLevel || ''} 
+                                onChange={handleExperienceChange}
+                                disabled={updatingExp}
+                                className="bg-bg-panel border border-border-default/50 rounded-lg px-3 py-1.5 text-text-primary text-sm focus:outline-none focus:border-accent-cyan cursor-pointer w-48"
+                            >
+                                <option value="" disabled>Select Level</option>
+                                {EXPERIENCE_LEVELS.map(level => (
+                                    <option key={level.value} value={level.value}>{level.label}</option>
+                                ))}
+                            </select>
+                            {updatingExp && <span className="spinner small"></span>}
+                        </div>
                     </div>
+                </div>
+
+                <div className="mt-8 border-t border-border-default/50 pt-6">
+                    <button 
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white bg-status-rejected/90 hover:bg-status-rejected transition-colors"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>
+                        Logout
+                    </button>
+                    <p className="text-xs text-text-muted mt-2">Sign out from this Device.</p>
                 </div>
             </div>
         </div>

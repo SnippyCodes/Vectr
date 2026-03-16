@@ -27,7 +27,9 @@ def get_progress(user_email: str, repo_name: str, issue_number: int, db: Session
             test_results="",
             chat_history="[]",
             fork_status="pending",
-            fork_vscode_url=None
+            fork_vscode_url=None,
+            pr_title=None,
+            pr_body=None
         )
     
     return schemas.ProgressResponse(
@@ -40,7 +42,9 @@ def get_progress(user_email: str, repo_name: str, issue_number: int, db: Session
         test_results=progress.test_results or "",
         chat_history=progress.chat_history or "[]",
         fork_status=progress.fork_status or "pending",
-        fork_vscode_url=progress.fork_vscode_url
+        fork_vscode_url=progress.fork_vscode_url,
+        pr_title=progress.pr_title,
+        pr_body=progress.pr_body
     )
 
 @routes.post("/", response_model=schemas.ProgressResponse)
@@ -53,16 +57,25 @@ def save_progress(req: schemas.SaveProgressRequest, db: Session = Depends(get_db
     ).first()
 
     if progress:
-        # Update existing Record
-        progress.issue_summary = req.issue_summary
-        progress.final_approach = req.final_approach
-        progress.git_commands = req.git_commands
-        progress.test_results = req.test_results
-        progress.chat_history = req.chat_history
+        # Update existing Record — only overwrite fields that are explicitly provided
+        if req.issue_summary is not None:
+            progress.issue_summary = req.issue_summary
+        if req.final_approach is not None:
+            progress.final_approach = req.final_approach
+        if req.git_commands is not None:
+            progress.git_commands = req.git_commands
+        if req.test_results is not None:
+            progress.test_results = req.test_results
+        if req.chat_history is not None:
+            progress.chat_history = req.chat_history
         if req.fork_status:
             progress.fork_status = req.fork_status
         if req.fork_vscode_url:
             progress.fork_vscode_url = req.fork_vscode_url
+        if req.pr_title is not None:
+            progress.pr_title = req.pr_title
+        if req.pr_body is not None:
+            progress.pr_body = req.pr_body
     else:
         # Create a new Record
         progress = models.ContributionProgress(
@@ -75,7 +88,9 @@ def save_progress(req: schemas.SaveProgressRequest, db: Session = Depends(get_db
             test_results=req.test_results,
             chat_history=req.chat_history,
             fork_status=req.fork_status or "pending",
-            fork_vscode_url=req.fork_vscode_url
+            fork_vscode_url=req.fork_vscode_url,
+            pr_title=req.pr_title,
+            pr_body=req.pr_body
         )
         db.add(progress)
 
@@ -115,5 +130,7 @@ def save_progress(req: schemas.SaveProgressRequest, db: Session = Depends(get_db
         test_results=progress.test_results or "",
         chat_history=progress.chat_history or "[]",
         fork_status=progress.fork_status or "pending",
-        fork_vscode_url=progress.fork_vscode_url
+        fork_vscode_url=progress.fork_vscode_url,
+        pr_title=progress.pr_title,
+        pr_body=progress.pr_body
     )

@@ -42,3 +42,4 @@ x.txt
 issues.json
 PRs.json
 test_pat_auth_script
+.DS_Store

@@ -126,16 +126,28 @@ class CondensedIssue(BaseModel):
     labels: List[str]
     issue_body: Optional[str] = None
 
+class PRContext(BaseModel):
+    pr_title: str = ""
+    pr_body: str = ""
+    code_diff: str = ""
+    commits: str = ""
+
 class AskNovaRequest(BaseModel):
     repo_name: str
     active_issue_number: Optional[int] = None
     user_email: Optional[str] = None
     issues_context: List[CondensedIssue] # Provide the list of currently open issues here
     messages: List[ChatMessage] # Conversation history
+    pr_context: Optional[PRContext] = None  # Current PR title/body for Draft PR page
+
+class UpdatedPR(BaseModel):
+    pr_title: Optional[str] = None
+    pr_body: Optional[str] = None
 
 class AskNovaResponse(BaseModel):
     reply: str
     updated_approach: Optional[str] = None
+    updated_pr: Optional[UpdatedPR] = None
 
 class SummarizeIssueRequest(BaseModel):
     repo_name: str
@@ -148,7 +160,19 @@ class SummarizeIssueRequest(BaseModel):
 class SummarizeIssueResponse(BaseModel):
     summary: str
     approach: str
+    testing_steps: str
     commands: str
+
+class FetchTestingStepsRequest(BaseModel):
+    repo_name: str
+    issue_number: int
+    issue_title: str
+    issue_body: str
+    comments: List[str]
+    user_email: str
+
+class FetchTestingStepsResponse(BaseModel):
+    testing_steps: str
 
 class FetchCommitsRequest(BaseModel):
     repo_name: str
@@ -175,6 +199,8 @@ class SaveProgressRequest(BaseModel):
     chat_history: Optional[str] = None # Stringified JSON array
     fork_status: Optional[str] = None  # pending | available
     fork_vscode_url: Optional[str] = None
+    pr_title: Optional[str] = None
+    pr_body: Optional[str] = None
 
 class ProgressResponse(BaseModel):
     user_email: str
@@ -187,6 +213,8 @@ class ProgressResponse(BaseModel):
     chat_history: Optional[str] = None # Stringified JSON array
     fork_status: Optional[str] = None
     fork_vscode_url: Optional[str] = None
+    pr_title: Optional[str] = None
+    pr_body: Optional[str] = None
 
 class SubmitPRRequest(BaseModel):
     user_email: str

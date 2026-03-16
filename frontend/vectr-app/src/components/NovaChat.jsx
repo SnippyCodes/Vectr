@@ -7,7 +7,7 @@ import { novaAPI } from '../services/api';
  * Ask Nova AI chat panel. Integrates with Amazon Bedrock via the backend.
  * Can be used standalone on any page—just pass repo context and issues.
  */
-export default function NovaChat({ repoName = '', issuesContext = [], activeIssueNumber = null, externalMessages, setExternalMessages, userEmail = null, onApproachUpdate = null }) {
+export default function NovaChat({ repoName = '', issuesContext = [], activeIssueNumber = null, externalMessages, setExternalMessages, userEmail = null, onApproachUpdate = null, onPRUpdate = null, prContext = null }) {
     // If externalMessages is provided, act as a controlled component, else use internal state.
     const [internalMessages, setInternalMessages] = useState([]);
     const messages = externalMessages !== undefined ? externalMessages : internalMessages;
@@ -47,8 +47,24 @@ export default function NovaChat({ repoName = '', issuesContext = [], activeIssu
         setLoading(true);
 
         try {
-            const res = await novaAPI.ask(repoName, issuesContext, newMessages, activeIssueNumber, userEmail);
-            setMessages(prev => [...prev, { role: 'assistant', content: res.reply }]);
+            const res = await novaAPI.ask(repoName, issuesContext, newMessages, activeIssueNumber, userEmail, prContext);
+            
+            let chatReply = res.reply;
+            
+            // If Nova updated the PR, show a clean confirmation in chat instead of the full PR content
+            if (res.updated_pr && onPRUpdate) {
+                onPRUpdate(res.updated_pr);
+                // Nova often repeats the PR as plain text — if the leftover reply is long, it's likely
+                // just the PR content repeated. Replace with a brief confirmation.
+                const trimmed = chatReply.trim();
+                if (!trimmed || trimmed.length > 200) {
+                    chatReply = '✅ I\'ve updated your Pull Request draft. Check the PR block on the left!';
+                }
+                // else: short reply is likely a brief explanation — keep it
+            }
+            
+            setMessages(prev => [...prev, { role: 'assistant', content: chatReply }]);
+            
             if (res.updated_approach && onApproachUpdate) {
                 onApproachUpdate(res.updated_approach);
             }
@@ -96,11 +112,15 @@ export default function NovaChat({ repoName = '', issuesContext = [], activeIssu
                         <div className="text-3xl">🤖</div>
                         <p className="text-text-muted text-sm">Ask Nova about issues, code, or contribution strategies</p>
                         <div className="flex flex-wrap gap-2 justify-center">
-                            {[
+                            {(prContext ? [
+                                'Review my PR',
+                                'Improve my PR description',
+                                'Make the PR title more descriptive',
+                            ] : [
                                 'Summarize this issue',
                                 'How should I approach this?',
                                 'What files should I modify?',
-                            ].map(q => (
+                            ]).map(q => (
                                 <button
                                     key={q}
                                     onClick={() => { setInput(q); }}

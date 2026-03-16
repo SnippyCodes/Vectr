@@ -176,16 +176,11 @@ export default function ContributePage() {
                         </span>
                     )}
                 </div>
-                <VectrLogo size={32} />
+                <div className="flex-1" />
                 <div className="flex items-center gap-3">
                     <button onClick={() => { setShowLangModal(true); setSelectedOrg(null); setRepos([]); setIssues([]); }}
                         className="btn-secondary text-xs">
                         Change Filter
-                    </button>
-                    <button className="text-text-secondary hover:text-text-primary transition-colors" aria-label="Notifications">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                        </svg>
                     </button>
                 </div>
             </header>
@@ -201,7 +196,7 @@ export default function ContributePage() {
             {/* 3-Column Layout */}
             <div className="p-4 grid grid-cols-1 lg:grid-cols-12 gap-4" style={{ height: 'calc(100vh - 73px)' }}>
                 {/* Repo List */}
-                <div className="lg:col-span-3 glass-card p-4 overflow-y-auto">
+                <div className="lg:col-span-3 glass-card p-4 block-scroll">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-base font-semibold text-text-primary">Repositories</h2>
                         <span className="text-text-muted text-xs">{repos.length}</span>
@@ -230,7 +225,7 @@ export default function ContributePage() {
                 </div>
 
                 {/* Issue List */}
-                <div className="lg:col-span-5 glass-card p-4 overflow-y-auto">
+                <div className="lg:col-span-5 glass-card p-4 block-scroll">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-base font-semibold text-text-primary">Issues</h2>
                         <span className="text-text-muted text-xs">{issues.length}</span>
@@ -381,7 +376,7 @@ export default function ContributePage() {
             {loading && step !== FLOW_STEPS.BROWSE && (
                 <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
                     <div className="text-center">
-                        <VectrLogo size={40} />
+                        <div className="mx-auto w-10 h-10 border-4 border-accent-cyan border-t-transparent rounded-full animate-spin"></div>
                         <p className="text-text-muted mt-3 animate-pulse text-sm">Loading...</p>
                     </div>
                 </div>
