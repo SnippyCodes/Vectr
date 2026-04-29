@@ -1369,6 +1369,82 @@
     min-height: 0;
   }
 
+  /* ─── Bento Grid Redesign ────────────────────────────────────── */
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: minmax(200px, auto);
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .bento-card {
+    background: #0d0d0d;
+    border: 1px solid #1a1a1a;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    transition: all 0.3s ease;
+  }
+
+  .bento-card:hover {
+    border-color: #2a2a2a;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  }
+
+  .bento-col-span-2 { grid-column: span 2; }
+  .bento-col-span-1 { grid-column: span 1; }
+  .bento-row-span-2 { grid-row: span 2; }
+
+  .bento-card-header {
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    z-index: 10;
+  }
+
+  .bento-card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .bento-card-body {
+    padding: 16px 24px;
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #2a2a2a transparent;
+    z-index: 10;
+  }
+
+  /* Bento specific backgrounds */
+  .bento-bg-gradient-1 {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle at top left, rgba(74,222,128,0.05), transparent 50%);
+    pointer-events: none;
+  }
+  .bento-bg-gradient-2 {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle at top right, rgba(56,189,248,0.05), transparent 50%);
+    pointer-events: none;
+  }
+  .bento-bg-gradient-3 {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle at bottom center, rgba(168,85,247,0.05), transparent 70%);
+    pointer-events: none;
+  }
+
   /* ─── Cards ──────────────────────────────────────────────────── */
   .dashboard-card {
     background: #111111;

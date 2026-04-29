@@ -63,12 +63,15 @@ export default function ContributePage() {
 
     const handleLangSelect = async (lang) => {
         setSelectedLang(lang);
-        setShowLangModal(false);
-        setLoading(true);
         setError('');
         try {
             const data = await contributionAPI.start(user.email, lang === 'All' ? null : lang);
             setOrgs(data.organizations || []);
+            
+            // Wait for the button success animation to show before transitioning
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            setShowLangModal(false);
             setShowOrgModal(true);
             setStep(FLOW_STEPS.SELECT_ORG);
         } catch (err) {
@@ -78,26 +81,31 @@ export default function ContributePage() {
                 return;
             }
             setError(err.message || 'Failed to fetch organizations');
-        } finally {
-            setLoading(false);
+            throw err;
         }
     };
 
     const handleOrgSelect = async (org) => {
         setSelectedOrg(org);
-        setShowOrgModal(false);
-        setLoading(true);
         setError('');
         try {
             const data = await repoAPI.getOrgRepos(org.name, user.email, selectedLang === 'All' ? null : selectedLang);
             setRepos(data.repos || []);
+            
+            // Wait for the button success animation to show before transitioning
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            setShowOrgModal(false);
             setStep(FLOW_STEPS.BROWSE);
             showToast(`Browsing ${org.name} repos`, 'info');
         } catch (err) {
             setError(err.message || 'Failed to fetch repositories');
-            setStep(FLOW_STEPS.BROWSE);
-        } finally {
-            setLoading(false);
+            // Allow the user to retry or just close
+            setTimeout(() => {
+                setShowOrgModal(false);
+                setStep(FLOW_STEPS.BROWSE);
+            }, 2000);
+            throw err;
         }
     };
 
@@ -287,19 +295,16 @@ export default function ContributePage() {
                             {(languages.length > 0 ? languages : SUPPORTED_LANGUAGES)
                                 .filter(lang => lang.toLowerCase().includes(langSearch.toLowerCase()))
                                 .map((lang, i) => (
-                                <button key={i} onClick={() => setSelectedLang(lang)}
+                                <StatefulButton key={i} onClick={() => handleLangSelect(lang)}
                                     className={`modal-pill-btn ${selectedLang === lang ? 'modal-pill-selected' : ''}`}
-                                >{lang}</button>
+                                >{lang}</StatefulButton>
                             ))}
-                            <button onClick={() => setSelectedLang('All')}
+                            <StatefulButton onClick={() => handleLangSelect('All')}
                                 className={`modal-pill-btn ${selectedLang === 'All' ? 'modal-pill-selected' : ''}`}
-                            >All Languages</button>
+                            >All Languages</StatefulButton>
                         </div>
                         <div className="flex justify-between">
                             <button onClick={() => { setShowLangModal(false); navigate(ROUTES.DASHBOARD); }} className="modal-btn-cancel">Cancel</button>
-                            <StatefulButton onClick={() => selectedLang && handleLangSelect(selectedLang)} disabled={!selectedLang}>
-                                Next
-                            </StatefulButton>
                         </div>
                     </div>
                 </div>
@@ -346,21 +351,22 @@ export default function ContributePage() {
                                     return <p style={{ color: '#555', textAlign: 'center', padding: '32px 0', fontSize: '0.85rem' }}>No organizations found for the selected criteria</p>;
                                 }
                                 return filteredOrgs.map((org, i) => (
-                                    <button key={i} onClick={() => setSelectedOrg(org)}
-                                        className={`modal-org-card ${selectedOrg?.name === org.name ? 'modal-org-selected' : ''}`}>
-                                        <div className="flex items-center gap-3">
-                                            {org.avatar_url && <img src={org.avatar_url} alt={org.name} className="w-8 h-8 rounded-full" loading="lazy" />}
-                                            <span style={{ color: '#e0e0e0', fontWeight: 500 }}>{org.name}</span>
+                                    <StatefulButton key={i} onClick={() => handleOrgSelect(org)}
+                                        className={`modal-org-card w-full text-left justify-start !p-3 ${selectedOrg?.name === org.name ? 'modal-org-selected' : ''}`}
+                                    >
+                                        <div className="flex items-center gap-3 w-full text-left">
+                                            {org.avatar_url && <img src={org.avatar_url} alt={org.name} className="w-8 h-8 rounded-full flex-shrink-0" loading="lazy" />}
+                                            <div className="flex flex-col flex-1 overflow-hidden items-start">
+                                                <span style={{ color: '#e0e0e0', fontWeight: 500 }}>{org.name}</span>
+                                                <span style={{ color: '#555', fontSize: '0.82rem' }} className="truncate w-full text-left">{org.description?.slice(0, 50) || ''}</span>
+                                            </div>
                                         </div>
-                                        <span style={{ color: '#555', fontSize: '0.82rem' }} className="truncate max-w-48">{org.description?.slice(0, 50) || ''}</span>
-                                    </button>
+                                    </StatefulButton>
                                 ));
                             })()}
                         </div>
-                        <div className="flex justify-end">
-                            <StatefulButton onClick={() => selectedOrg && handleOrgSelect(selectedOrg)} disabled={!selectedOrg}>
-                                Select Organization
-                            </StatefulButton>
+                        <div className="flex justify-between">
+                            <button onClick={() => { setShowOrgModal(false); setShowLangModal(true); }} className="modal-btn-cancel">Back</button>
                         </div>
                     </div>
                 </div>
