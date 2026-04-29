@@ -81,7 +81,6 @@ export default function DashboardPage() {
 
     return (
         <div className="dashboard-page fade-in">
-            {/* ─── Top Bar ─────────────────────────────────────── */}
             <div className="dashboard-topbar">
                 <div>
                     <h1 className="dashboard-greeting">Welcome back, {displayName}</h1>
@@ -89,17 +88,6 @@ export default function DashboardPage() {
                 </div>
                 <div className="dashboard-topbar-actions">
                     <StatusBadge status={experienceLevel} />
-                    <HoverBorderGradient
-                        containerClassName="rounded-full"
-                        as="button"
-                        onClick={() => navigate(ROUTES.CONTRIBUTE)}
-                        id="start-contributing-btn"
-                    >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                        </svg>
-                        <span>Start Contributing</span>
-                    </HoverBorderGradient>
                 </div>
             </div>
 
@@ -268,15 +256,42 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                {/* 4. Commit Map (col-span-2) */}
-                <div className="bento-card bento-col-span-2">
-                    <div className="bento-bg-gradient-2" style={{ opacity: 0.3 }}></div>
-                    <div className="bento-card-header">
-                        <h2 className="bento-card-title">Commit Map</h2>
+                {/* 4. Commit Map & Start Contributing (col-span-2) */}
+                <div className="bento-card bento-col-span-2 relative group overflow-hidden border-[#1e1e1e] hover:border-[#3a205e] transition-all duration-500">
+                    {/* Deep space glow for the commit map card */}
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-purple-900/10 via-transparent to-transparent pointer-events-none"></div>
+                    
+                    <div className="bento-card-header border-none pb-2 relative z-10">
+                        <h2 className="bento-card-title flex items-center gap-2 text-purple-100/90">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400">
+                                <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3v-12a3 3 0 0 0-3-3z"></path>
+                                <path d="M6 3a3 3 0 0 1 3 3 3 3 0 0 1-3 3 3 3 0 0 1-3-3 3 3 0 0 1 3-3z"></path>
+                                <path d="M9 6h3a2 2 0 0 1 2 2v8"></path>
+                            </svg>
+                            Contribution Activity
+                        </h2>
                     </div>
-                    <div className="bento-card-body flex flex-col p-6 overflow-hidden">
-                        <div className="w-full h-full flex flex-col items-center justify-center">
+
+                    <div className="bento-card-body p-6 pt-2 relative z-10 flex flex-col items-center justify-between gap-6">
+                        <div className="w-full flex justify-start opacity-80 group-hover:opacity-100 transition-opacity duration-500 overflow-x-auto">
                             <CommitMap data={commitData} />
+                        </div>
+                        
+                        <div className="w-full border-t border-purple-500/10 pt-5 flex justify-between items-center">
+                            <span className="text-xs text-purple-200/50 hidden sm:inline-block tracking-wide">
+                                Your open source footprint over the last year
+                            </span>
+                            <HoverBorderGradient
+                                containerClassName="rounded-full shadow-[0_0_20px_rgba(168,85,247,0.1)] hover:shadow-[0_0_30px_rgba(168,85,247,0.25)] transition-all duration-300"
+                                className="bg-[#09090b] px-6 py-2 flex items-center gap-2.5 text-purple-100 border border-purple-500/20"
+                                as="button"
+                                onClick={() => navigate(ROUTES.CONTRIBUTE)}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400">
+                                    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                                <span className="font-semibold tracking-wide text-sm whitespace-nowrap">Start Contributing</span>
+                            </HoverBorderGradient>
                         </div>
                     </div>
                 </div>

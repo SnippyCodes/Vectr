@@ -33,11 +33,11 @@ export default function CommitMap({ data = [] }) {
     }, [data]);
 
     const getColor = (count) => {
-        if (count === 0) return 'rgba(30,58,95,0.3)';
-        if (count <= 2) return '#166534';
-        if (count <= 5) return '#22c55e';
-        if (count <= 10) return '#4ade80';
-        return '#86efac';
+        if (count === 0) return 'rgba(255, 255, 255, 0.03)';
+        if (count <= 2) return 'rgba(168, 85, 247, 0.3)'; // purple-500 at 30%
+        if (count <= 5) return 'rgba(168, 85, 247, 0.5)'; // purple-500 at 50%
+        if (count <= 10) return 'rgba(168, 85, 247, 0.8)'; // purple-500 at 80%
+        return '#d8b4fe'; // purple-300 (bright)
     };
 
     return (
