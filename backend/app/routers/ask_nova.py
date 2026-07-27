@@ -4,7 +4,6 @@ import models
 from database import get_db
 from sqlalchemy.orm import Session
 from app.utils.repo_analyzer import analyze_and_cache_repo, evaluate_local_commits
-import boto3
 import json
 import os
 import asyncio
@@ -18,11 +17,10 @@ nova_testing_steps_locks = {}
 
 routes = APIRouter(prefix="/nova", tags=["Bedrock AI Chat"])
 
-# Initialize AWS Bedrock Runtime Client
+# Initialize AWS Bedrock Runtime Client (Optional)
 def get_bedrock_client():
     try:
-        # Relies on the host environment having AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
-        # or having an IAM role assigned to the EC2 instance reading from .env
+        import boto3
         client_kwargs = {
             "service_name": "bedrock-runtime",
             "region_name": os.getenv("AWS_REGION", "us-east-1").strip().strip('"').strip("'")
