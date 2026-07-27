@@ -36,6 +36,7 @@ ENV/
 *.sql
 *.sqlite
 *.txt
+!requirements.txt
 *.json
 
 # IDEs
