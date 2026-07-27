@@ -49,14 +49,10 @@ def get_bedrock_client():
 async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db)):
     """
     Given a repository context, a list of open issues, and chat history,
-    requests Amazon Nova to help the user select an issue and understand how to tackle it.
+    requests the AI engine (Groq/OpenRouter/Gemini/Ollama) to help the user select an issue and understand how to tackle it.
     """
-    client = get_bedrock_client()
-    if not client:
-        raise HTTPException(status_code=500, detail="Failed to initialize AWS Bedrock Client. Check AWS credentials.")
-        
     if os.getenv("USE_NOVA", "True").lower() == "false":
-        return schemas.AskNovaResponse(reply="Amazon Nova AI features are currently disabled in the backend configuration.")
+        return schemas.AskNovaResponse(reply="AI features are currently disabled in the backend configuration.")
         
     # Format the issues for the system prompt
     issues_text = ""
@@ -151,9 +147,8 @@ async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db
         )
     else:
         system_prompt = (
-            f"You are Vectr Nova, an expert open source contribution assistant.\n"
-            f"The user is currently browsing the repository '{request.repo_name}'.\n\n"
-            f"Here is the list of currently open issues in this repository:\n"
+            f"You are Vectr Nova, an expert AI Project Manager and open source mentor.\n"
+            f"Below is a list of all open issues for the repository '{request.repo_name}':\n"
             f"{issues_text}\n"
             f"{repo_analysis}"
             f"Your goals:\n"
@@ -162,27 +157,14 @@ async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db
             f"3. Be concise, friendly, and highly technical in your answers. Do not explain git commands unless asked; focus on the code and logic."
         )
     
-    # Format messages for Amazon Nova models
-    formatted_messages = []
+    # Format messages for AI Engine
+    chat_messages = []
     for msg in request.messages:
-        formatted_messages.append({
+        chat_messages.append({
             "role": msg.role,
-            "content": [{"text": msg.content}]
+            "content": msg.content
         })
-        
-    # Bedrock Nova request body format
-    # Reference: https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-nova.html
-    max_tokens = 4000 if request.pr_context else 1000
-    body = {
-        "system": [{"text": system_prompt}],
-        "messages": formatted_messages,
-        "inferenceConfig": {
-            "maxTokens": max_tokens,
-            "temperature": 0.5,
-            "topP": 0.9,
-        }
-    }
-    
+
     def _try_parse_json(text_block: str):
         """Try to parse a JSON block, handling common issues."""
         text_block = text_block.strip()
@@ -287,57 +269,22 @@ async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db
         return text.strip(), updated_appr, updated_pr_data
 
     try:
-        endpoint_url = os.getenv("AWS_ENDPOINT_URL")
-        if endpoint_url and ("localhost" in endpoint_url or "127.0.0.1" in endpoint_url):
-            # INTERCEPT: Instead of using AWS/Bedrock, forward directly to local Ollama via standard HTTP
-            ollama_url = "http://127.0.0.1:11434/api/chat"
-            ollama_messages = [{"role": "system", "content": system_prompt}]
-            for msg in request.messages:
-                ollama_messages.append({"role": msg.role, "content": msg.content})
-                
-            payload = {
-                "model": "amazon.nova-2-lite:v1.0",  # Optional: Fallback model based on Ollama tags
-                "messages": ollama_messages,
-                "stream": False,
-                "options": {
-                    "temperature": 0.5,
-                    "top_p": 0.9,
-                }
-            }
-            res = req.post(ollama_url, json=payload)
-            res.raise_for_status()
-            reply_text = res.json().get('message', {}).get('content', "Ollama couldn't generate a response.")
-            reply_text, updated_approach, updated_pr_result = process_reply(reply_text)
-            return schemas.AskNovaResponse(
-                reply=reply_text, 
-                updated_approach=updated_approach,
-                updated_pr=schemas.UpdatedPR(**updated_pr_result) if updated_pr_result else None
-            )
-            
-        else:
-            body = {
-                "system": [{"text": system_prompt}],
-                "messages": formatted_messages,
-                "inferenceConfig": {"maxTokens": 1000, "temperature": 0.5, "topP": 0.9}
-            }
-            response = client.invoke_model(
-                modelId=os.getenv("NOVA_MODEL_ID", "amazon.nova-lite-v1:0"),
-                body=json.dumps(body),
-                accept="application/json",
-                contentType="application/json"
-            )
-            response_body = json.loads(response.get('body').read())
-            reply_text = response_body.get('output', {}).get('message', {}).get('content', [{}])[0].get('text', "")
-            reply_text, updated_approach, updated_pr_result = process_reply(reply_text)
-            return schemas.AskNovaResponse(
-                reply=reply_text, 
-                updated_approach=updated_approach,
-                updated_pr=schemas.UpdatedPR(**updated_pr_result) if updated_pr_result else None
-            )
-            
+        from app.services.ai_service import call_ai_engine
+        max_tokens = 4000 if request.pr_context else 1000
+        reply_text = call_ai_engine(
+            messages=chat_messages,
+            system_prompt=system_prompt,
+            temperature=0.5,
+            max_tokens=max_tokens,
+        )
+        reply_text, updated_approach, updated_pr_result = process_reply(reply_text)
+        return schemas.AskNovaResponse(
+            reply=reply_text, 
+            updated_approach=updated_approach,
+            updated_pr=schemas.UpdatedPR(**updated_pr_result) if updated_pr_result else None
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI invocation error: {str(e)}")
-
 
 
 #Summarizer Route
@@ -362,25 +309,26 @@ async def summarize_issue(request: schemas.SummarizeIssueRequest, background_tas
         print(f"Error fetching github username for fork instructions: {e}")
 
     programmatic_commands = (
-        f"## Git Commands in vscode.dev\n\n"
-        f"> After opening your fork in vscode.dev, open the terminal with `` Ctrl+` `` or `Ctrl+J`.\n\n"
-        f"### 1. Create a Feature Branch\n"
-        f"```\n"
+        f"## Working in vscode.dev (Web Editor)\n\n"
+        f"> **Note:** `vscode.dev` runs entirely in your browser without a terminal.\n\n"
+        f"### Option A: Edit & Commit in Browser (No Terminal Required)\n"
+        f"1. Open the target files from the Explorer on the left.\n"
+        f"2. Make your code changes.\n"
+        f"3. Click the **Source Control (Git) icon** on the left sidebar (`Ctrl+Shift+G`).\n"
+        f"4. Enter a commit message: `Fix #{request.issue_number}: <brief summary>`.\n"
+        f"5. Click **Commit & Push** (checkmark button).\n\n"
+        f"### Option B: Local Terminal Access\n"
+        f"If you need a terminal or local build/test suite, open **VS Code Desktop** and clone your fork:\n"
+        f"```bash\n"
+        f"git clone https://github.com/{github_username}/{repo_short_name}.git\n"
+        f"cd {repo_short_name}\n"
         f"git checkout -b fix/issue-{request.issue_number}\n"
-        f"```\n\n"
-        f"### 2. Make Your Code Changes\n"
-        f"Edit the relevant files in the vscode.dev editor. Refer to the **Issue Summary** and **Final Approach** on the right for guidance.\n\n"
-        f"### 3. Stage & Commit\n"
-        f"```\n"
         f"git add .\n"
-        f'git commit -m "Fix #{request.issue_number}: <brief description>"\n'
-        f"```\n\n"
-        f"### 4. Push to Your Fork\n"
-        f"```\n"
+        f'git commit -m "Fix #{request.issue_number}: description"\n'
         f"git push origin fix/issue-{request.issue_number}\n"
         f"```\n\n"
-        f"### 5. Evaluate with Nova\n"
-        f"Hit **Refresh** on the Commits panel, then use **Ask Nova!** to get AI-powered feedback on your changes."
+        f"### Evaluate with Vectr Nova\n"
+        f"After committing/pushing your changes, hit **Refresh** on the Commits panel in Vectr to trigger AI verification!"
     )
 
 
@@ -455,33 +403,13 @@ async def summarize_issue(request: schemas.SummarizeIssueRequest, background_tas
     }
 
     try:
-        endpoint_url = os.getenv("AWS_ENDPOINT_URL")
-        if endpoint_url and ("localhost" in endpoint_url or "127.0.0.1" in endpoint_url):
-            ollama_url = "http://127.0.0.1:11434/api/chat"
-            payload = {
-                "model": "amazon.nova-2-lite:v1.0",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": "Please provide the summary JSON."}
-                ],
-                "stream": False,
-                "options": {
-                    "temperature": 0.2,
-                    "top_p": 0.9,
-                }
-            }
-            res = req.post(ollama_url, json=payload)
-            res.raise_for_status()
-            reply_text = res.json().get('message', {}).get('content', "")
-        else:
-            response = client.invoke_model(
-                modelId=os.getenv("NOVA_MODEL_ID", "amazon.nova-lite-v1:0"),
-                body=json.dumps(body),
-                accept="application/json",
-                contentType="application/json"
-            )
-            response_body = json.loads(response.get('body').read())
-            reply_text = response_body.get('output', {}).get('message', {}).get('content', [{}])[0].get('text', "")
+        from app.services.ai_service import call_ai_engine
+        reply_text = call_ai_engine(
+            messages=[{"role": "user", "content": "Please provide the summary JSON."}],
+            system_prompt=system_prompt,
+            temperature=0.2,
+            max_tokens=1000,
+        )
 
         # 4. Clean and Parse the JSON from AI's text response
         reply_text = reply_text.strip()
@@ -566,10 +494,6 @@ async def fetch_testing_steps(request: schemas.FetchTestingStepsRequest, db: Ses
             db.commit()
         return schemas.FetchTestingStepsResponse(testing_steps=st)
         
-    client = get_bedrock_client()
-    if not client:
-        raise HTTPException(status_code=500, detail="Failed to initialize AWS Bedrock Client.")
-
     discussion = "\n".join(request.comments) if request.comments else "No comments on this issue yet."
     
     system_prompt = f"""
@@ -587,41 +511,14 @@ async def fetch_testing_steps(request: schemas.FetchTestingStepsRequest, db: Ses
     }}
     """
     
-    body = {
-        "system": [{"text": system_prompt}],
-        "messages": [{"role": "user", "content": [{"text": "Please provide the testing steps JSON."}]}],
-        "inferenceConfig": {
-            "temperature": 0.2, 
-            "topP": 0.9,
-            "maxTokens": 1000
-        }
-    }
-    
     try:
-        endpoint_url = os.getenv("AWS_ENDPOINT_URL")
-        if endpoint_url and ("localhost" in endpoint_url or "127.0.0.1" in endpoint_url):
-            ollama_url = "http://127.0.0.1:11434/api/chat"
-            payload = {
-                "model": "amazon.nova-2-lite:v1.0",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": "Please provide the testing steps JSON."}
-                ],
-                "stream": False,
-                "options": {"temperature": 0.2, "top_p": 0.9}
-            }
-            res = req.post(ollama_url, json=payload)
-            res.raise_for_status()
-            reply_text = res.json().get('message', {}).get('content', "")
-        else:
-            response = client.invoke_model(
-                modelId=os.getenv("NOVA_MODEL_ID", "amazon.nova-lite-v1:0"),
-                body=json.dumps(body),
-                accept="application/json",
-                contentType="application/json"
-            )
-            response_body = json.loads(response.get('body').read())
-            reply_text = response_body.get('output', {}).get('message', {}).get('content', [{}])[0].get('text', "")
+        from app.services.ai_service import call_ai_engine
+        reply_text = call_ai_engine(
+            messages=[{"role": "user", "content": "Please provide the testing steps JSON."}],
+            system_prompt=system_prompt,
+            temperature=0.2,
+            max_tokens=1000,
+        )
 
         reply_text = reply_text.strip()
         if reply_text.startswith("```json"): reply_text = reply_text[7:-3].strip()
@@ -667,7 +564,7 @@ async def fetch_commits(request: schemas.FetchCommitsRequest, db: Session = Depe
         if user_record and user_record.github_pat:
             pat = decrypt_pat(user_record.github_pat)
             print(f"[COMMITS DEBUG] PAT decrypted, first 8: {pat[:8]}...")
-            res = req.get("https://api.github.com/user", headers={"Authorization": f"Bearer {pat}"})
+            res = req.get("https://api.github.com/user", headers={"Authorization": f"Bearer {pat}", "User-Agent": "Vectr-App"}, timeout=10)
             print(f"[COMMITS DEBUG] GitHub /user status: {res.status_code}")
             if res.status_code == 200:
                 github_username = res.json().get("login")
@@ -700,7 +597,8 @@ async def fetch_commits(request: schemas.FetchCommitsRequest, db: Session = Depe
         try:
             fork_check = req.get(
                 f"https://api.github.com/repos/{github_username}/{repo_short_name}",
-                headers={"Authorization": f"Bearer {pat}"}
+                headers={"Authorization": f"Bearer {pat}", "User-Agent": "Vectr-App"},
+                timeout=10
             )
             fork_exists = fork_check.status_code == 200
         except Exception:

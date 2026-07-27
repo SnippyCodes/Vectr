@@ -7,15 +7,23 @@ import subprocess
 
 WORKSPACES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "workspaces")
 
+def _sync_run_cmd(cmd: str, cwd: str = None):
+    try:
+        res = subprocess.run(
+            cmd,
+            cwd=cwd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            errors="ignore",
+        )
+        return res.returncode, res.stdout, res.stderr
+    except Exception as e:
+        return 1, "", str(e)
+
 async def run_cmd_async(cmd: str, cwd: str = None):
-    process = await asyncio.create_subprocess_shell(
-        cmd,
-        cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    stdout, stderr = await process.communicate()
-    return process.returncode, stdout.decode(errors="ignore"), stderr.decode(errors="ignore")
+    return await asyncio.to_thread(_sync_run_cmd, cmd, cwd)
 
 def generate_tree(dir_path: str, max_depth: int = 3, current_depth: int = 0) -> str:
     """Generate a simple file tree string."""
@@ -54,10 +62,10 @@ def get_readme_content(repo_dir: str) -> str:
     return "No README content found."
 
 async def _invoke_nova_for_analysis(client, repo_name: str, tree: str, readme: str) -> str:
-    """Uses Bedrock Nova to generate a deep technical context string of the repo."""
+    """Generates a deep technical context summary of the repository using the unified AI engine."""
     try:
-        import boto3
-        
+        from app.services.ai_service import call_ai_engine
+
         system_prompt = (
             f"You are a Senior Software Architect analyzing the repository '{repo_name}'.\n"
             f"Based on the repository's file structure and README below, formulate a detailed but concise project context.\n"
@@ -66,93 +74,41 @@ async def _invoke_nova_for_analysis(client, repo_name: str, tree: str, readme: s
             f"This summary will be injected into future AI chats to help a user contribute to this exact repository.\n"
             f"Output purely the analysis, no conversational filler."
         )
-        
         user_msg = f"FILE TREE:\n{tree}\n\nREADME EXCERPT:\n{readme}\n\nPlease provide the structural analysis."
-        
-        endpoint_url = os.getenv("AWS_ENDPOINT_URL")
-        # Route to Ollama if locally mocked
-        if endpoint_url and ("localhost" in endpoint_url or "127.0.0.1" in endpoint_url):
-            import requests as req
-            ollama_url = "http://127.0.0.1:11434/api/chat"
-            payload = {
-                "model": "amazon.nova-2-lite:v1.0",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_msg}
-                ],
-                "stream": False,
-            }
-            res = req.post(ollama_url, json=payload)
-            res.raise_for_status()
-            return res.json().get('message', {}).get('content', "Failed to generate context.")
-        else:
-            if not client:
-                 return "Failed to initialize Bedrock client."
-            body = {
-                "system": [{"text": system_prompt}],
-                "messages": [{"role": "user", "content": [{"text": user_msg}]}],
-                "inferenceConfig": {"maxTokens": 1500, "temperature": 0.3}
-            }
-            response = client.invoke_model(
-                modelId=os.getenv("NOVA_MODEL_ID", "amazon.nova-lite-v1:0"),
-                body=json.dumps(body),
-                accept="application/json",
-                contentType="application/json"
-            )
-            response_body = json.loads(response.get('body').read())
-            return response_body.get('output', {}).get('message', {}).get('content', [{}])[0].get('text', "")
-            
+
+        return call_ai_engine(
+            messages=[{"role": "user", "content": user_msg}],
+            system_prompt=system_prompt,
+            temperature=0.3,
+            max_tokens=1500,
+        )
     except Exception as e:
-        print(f"Error invoking Nova for static analysis: {e}")
+        print(f"Error invoking AI engine for static analysis: {e}")
         return "Could not generate deep structural analysis at this time."
 
 async def _invoke_nova_for_diff_summary(client, diff_str: str) -> str:
-    """Uses Bedrock Nova to generate a short 1-2 sentence summary of a git diff."""
+    """Generates a short concise summary of a git diff using the unified AI engine."""
     if not diff_str.strip():
         return "No significant code changes found."
-        
+
     try:
+        from app.services.ai_service import call_ai_engine
+
         system_prompt = (
             "You are an expert code reviewer.\n"
             "Formulate a highly concise, 1-2 sentence technical summary of the git diff provided.\n"
             "Focus purely on what the code changes actually accomplish without conversational filler."
         )
         user_msg = f"GIT DIFF:\n```diff\n{diff_str}\n```\n\nPlease summarize these code changes."
-        
-        endpoint_url = os.getenv("AWS_ENDPOINT_URL")
-        if endpoint_url and ("localhost" in endpoint_url or "127.0.0.1" in endpoint_url):
-            import requests as req
-            ollama_url = "http://127.0.0.1:11434/api/chat"
-            payload = {
-                "model": "amazon.nova-2-lite:v1.0",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_msg}
-                ],
-                "stream": False,
-            }
-            res = req.post(ollama_url, json=payload)
-            res.raise_for_status()
-            return res.json().get('message', {}).get('content', "Failed to generate diff summary.")
-        else:
-            if not client:
-                 return "Failed to initialize Bedrock client."
-            body = {
-                "system": [{"text": system_prompt}],
-                "messages": [{"role": "user", "content": [{"text": user_msg}]}],
-                "inferenceConfig": {"maxTokens": 300, "temperature": 0.2}
-            }
-            response = client.invoke_model(
-                modelId=os.getenv("NOVA_MODEL_ID", "amazon.nova-lite-v1:0"),
-                body=json.dumps(body),
-                accept="application/json",
-                contentType="application/json"
-            )
-            response_body = json.loads(response.get('body').read())
-            return response_body.get('output', {}).get('message', {}).get('content', [{}])[0].get('text', "").strip()
-            
+
+        return call_ai_engine(
+            messages=[{"role": "user", "content": user_msg}],
+            system_prompt=system_prompt,
+            temperature=0.2,
+            max_tokens=300,
+        )
     except Exception as e:
-        print(f"Error invoking Nova for diff summary: {e}")
+        print(f"Error invoking AI engine for diff summary: {e}")
         return "Could not summarize the recent commit diff."
 
 async def analyze_and_cache_repo(repo_name: str, db: Session, bedrock_client) -> str:

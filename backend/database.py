@@ -7,19 +7,28 @@ load_dotenv()
 
 
 #DATABASE SETUP & MODELS
-DB_USER = "postgres"
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-ENDPOINT = os.getenv("ENDPOINT")
-DB_NAME = os.getenv("DB_NAME")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-DATABASE_URL =  f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{ENDPOINT}:5432/{DB_NAME}?sslmode=require"
-engine = create_engine(
-    DATABASE_URL,
-    pool_recycle=280,      # Recycle connections before cloud DB timeout (usually 300s)
-    pool_pre_ping=True,    # Test connections before use, auto-reconnect stale ones
-    pool_size=5,
-    max_overflow=10,
-)
+if not DATABASE_URL:
+    DB_USER = os.getenv("DB_USER", "postgres")
+    DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+    ENDPOINT = os.getenv("ENDPOINT", "localhost")
+    DB_NAME = os.getenv("DB_NAME", "postgres")
+    DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{ENDPOINT}:5432/{DB_NAME}?sslmode=require"
+
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False}
+    )
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_recycle=280,      # Recycle connections before cloud DB timeout (usually 300s)
+        pool_pre_ping=True,    # Test connections before use, auto-reconnect stale ones
+        pool_size=5,
+        max_overflow=10,
+    )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 Base.metadata.create_all(bind=engine) 
