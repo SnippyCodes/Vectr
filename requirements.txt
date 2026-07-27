@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+httpx
+python-dotenv
+requests
+docker
+defusedxml
+python-multipart
+sqlalchemy
+psycopg2-binary
+firebase
+boto3
+cryptography
