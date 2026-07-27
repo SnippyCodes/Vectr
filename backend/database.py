@@ -10,11 +10,14 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    DB_USER = os.getenv("DB_USER", "postgres")
-    DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-    ENDPOINT = os.getenv("ENDPOINT", "localhost")
-    DB_NAME = os.getenv("DB_NAME", "postgres")
-    DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{ENDPOINT}:5432/{DB_NAME}?sslmode=require"
+    ENDPOINT = os.getenv("ENDPOINT")
+    if ENDPOINT and ENDPOINT != "localhost":
+        DB_USER = os.getenv("DB_USER", "postgres")
+        DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+        DB_NAME = os.getenv("DB_NAME", "postgres")
+        DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{ENDPOINT}:5432/{DB_NAME}?sslmode=require"
+    else:
+        DATABASE_URL = "sqlite:///./vectr.db"
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
