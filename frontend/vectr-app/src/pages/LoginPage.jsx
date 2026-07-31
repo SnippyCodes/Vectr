@@ -37,7 +37,7 @@ export default function LoginPage() {
                 experienceLevel: data.experience_level,
             });
             showToast('Signed in successfully', 'success');
-            navigate(data.has_pat ? ROUTES.DASHBOARD : ROUTES.PAT);
+            navigate(ROUTES.PAT);
         } catch (err) {
             setError(err.message || 'Google sign-in failed. Please try again.');
         } finally {
@@ -60,7 +60,7 @@ export default function LoginPage() {
                 experienceLevel: data.experience_level,
             });
             showToast('Signed in with GitHub successfully', 'success');
-            navigate(data.has_pat ? ROUTES.DASHBOARD : ROUTES.PAT);
+            navigate(ROUTES.PAT);
         } catch (err) {
             setError(err.message || 'GitHub sign-in failed. Please try again.');
         } finally {
@@ -85,8 +85,8 @@ export default function LoginPage() {
             } else {
                 const data = await authAPI.emailLogin(email, password);
                 login({ email: data.email, hasPat: data.has_pat || false, authType: 'email' });
-                showToast('Welcome back!', 'success');
-                navigate(data.has_pat ? ROUTES.DASHBOARD : ROUTES.PAT);
+                showToast('Welcome back! Please connect your GitHub PAT.', 'success');
+                navigate(ROUTES.PAT);
             }
         } catch (err) {
             setError(err.message || 'Authentication failed. Please check your credentials.');
