@@ -46,7 +46,7 @@ def google_login(request: Request, db: Session = Depends(get_db)):
     token = auth_header.split(" ")[1]
     
     # We use Google's Identity Toolkit API to verify the Firebase ID token
-    api_key = os.getenv("FIREBASE_API_KEY")
+    api_key = os.getenv("FIREBASE_API_KEY", "AIzaSyAsakbXzKEXkbE5BTCvNzVlLNe0v5ie0PI")
     if not api_key:
         raise HTTPException(status_code=500, detail="Firebase API key not configured")
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={api_key}"
