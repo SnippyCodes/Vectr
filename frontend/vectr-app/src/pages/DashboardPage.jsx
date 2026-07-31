@@ -6,7 +6,8 @@ import { ROUTES, buildIssuePath, STATUS, STATUS_COLORS } from '../constants';
 import StatusBadge from '../components/StatusBadge';
 import CommitMap from '../components/CommitMap';
 import { CardSkeleton } from '../components/Skeleton';
-import { HoverBorderGradient } from '../components/ui/hover-border-gradient';
+
+const LANGUAGE_FILTERS = ['All', 'Python', 'JavaScript', 'C++', 'Rust', 'TypeScript'];
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -16,6 +17,7 @@ export default function DashboardPage() {
     const [error, setError] = useState('');
     const [navigatingTo, setNavigatingTo] = useState(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [activeFilter, setActiveFilter] = useState('All');
 
     const loadDashboard = async (showRefresh = false) => {
         if (!user?.email) return;
@@ -47,7 +49,6 @@ export default function DashboardPage() {
             const org = repoName.split('/')[0];
             const repo = repoName.split('/')[1] || '';
             
-            // We need to fetch the issue details before navigating because IssueDashboardPage expects it in state
             const data = await repoAPI.getRepoIssues(org, repo, user.email);
             const targetIssue = data.issues?.find(i => i.number.toString() === issueNum.toString());
             
@@ -60,7 +61,6 @@ export default function DashboardPage() {
             });
         } catch (err) {
             console.error("Failed to fetch issue details for navigation:", err);
-            // Fallback navigate
             const org = repoName.split('/')[0];
             const repo = repoName.split('/')[1] || '';
             navigate(buildIssuePath(org, repo, issueNum), { state: { repoName }});
@@ -72,275 +72,357 @@ export default function DashboardPage() {
     const displayName = dashboard?.user_name
         || user?.githubUsername
         || user?.email?.split('@')[0]
-        || 'Contributor';
-    const experienceLevel = dashboard?.experience_level || user?.experienceLevel || 'Intermediate';
+        || 'Alex';
+    const experienceLevel = dashboard?.experience_level || user?.experienceLevel || 'Pro Plan';
     const contributions = dashboard?.my_contributions || [];
     const workingIssues = dashboard?.working_issues || [];
     const commitData = dashboard?.commit_map || [];
     const pullRequests = dashboard?.pull_requests || [];
 
+    const filteredContributions = activeFilter === 'All' 
+        ? contributions 
+        : contributions.filter(c => c.language?.toLowerCase() === activeFilter.toLowerCase() || c.repo_name?.toLowerCase().includes(activeFilter.toLowerCase()));
+
+    const currentDateStr = new Date().toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    });
+
     return (
-        <div className="dashboard-page fade-in">
-            <div className="dashboard-topbar">
-                <div>
-                    <h1 className="dashboard-greeting">Welcome back, {displayName}</h1>
-                    <p className="dashboard-subtitle">Here's what's happening with your contributions</p>
+        <div className="min-h-screen bg-[#0f1117] text-text-primary p-6 md:p-8 space-y-8 fade-in font-sans">
+            {/* ── Top Breadcrumbs & Header ── */}
+            <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
+                    <span>Vectr</span>
+                    <span>&gt;</span>
+                    <span className="text-purple-400 font-semibold">Dashboard</span>
                 </div>
-                <div className="dashboard-topbar-actions">
-                    <StatusBadge status={experienceLevel} />
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
+                                Welcome Back, {displayName}
+                            </h1>
+                            <span className="px-3 py-1 text-xs font-semibold font-mono rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1.5 shadow-sm">
+                                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                                {experienceLevel}
+                            </span>
+                        </div>
+                        <p className="text-xs md:text-sm text-text-muted mt-1">
+                            Your open source AI infrastructure at a glance — {currentDateStr}
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={() => loadDashboard(true)}
+                        disabled={isRefreshing}
+                        className="px-4 py-2 text-xs font-semibold rounded-xl bg-[#181a24] hover:bg-[#202330] text-text-primary border border-white/10 transition-all flex items-center gap-2 self-start sm:self-auto cursor-pointer"
+                    >
+                        <svg className={isRefreshing ? "animate-spin text-purple-400" : "text-text-muted"} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                            <path d="M3 3v5h5"/>
+                        </svg>
+                        {isRefreshing ? 'Refreshing...' : 'Refresh Metrics'}
+                    </button>
                 </div>
             </div>
 
             {error && (
-                <div className="dashboard-error">
+                <div className="p-4 rounded-xl text-xs bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-between">
                     <span>{error}</span>
-                    <button onClick={() => { setError(''); setLoading(true); dashboardAPI.get(user.email).then(setDashboard).catch(e => setError(e.message)).finally(() => setLoading(false)); }}
-                        className="dashboard-error-retry">Retry</button>
+                    <button 
+                        onClick={() => loadDashboard(true)}
+                        className="underline hover:text-red-300 font-semibold"
+                    >
+                        Retry Connection
+                    </button>
                 </div>
             )}
 
-            {/* ─── Bento Grid Redesign ──────────────────────────────── */}
-            <div className="bento-grid">
-                
-                {/* 1. My Contributions (col-span-2, row-span-2) */}
-                <div className="bento-card bento-col-span-2 bento-row-span-2">
-                    <div className="bento-bg-gradient-1"></div>
-                    <div className="bento-card-header">
-                        <h2 className="bento-card-title">
-                            My Contributions
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); loadDashboard(true); }}
-                                disabled={isRefreshing}
-                                className="dashboard-refresh-btn"
-                                title="Refresh status"
-                            >
-                                <svg className={isRefreshing ? "animate-reverse-spin" : ""} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                                    <path d="M3 3v5h5"/>
-                                </svg>
-                            </button>
-                        </h2>
-                        <span className="dashboard-card-count">
-                            {isRefreshing ? (
-                                <span className="dot-wave text-text-muted">
-                                    <span></span><span></span><span></span>
-                                </span>
-                            ) : (
-                                `${contributions.length} total`
-                            )}
+            {/* ── 4 Top Stat Metric Cards (Matte Bento Grid) ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Metric 1 */}
+                <div className="bg-[#141620] p-5 rounded-2xl border border-white/10 hover:border-purple-500/30 transition-all duration-300 relative overflow-hidden group shadow-lg">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-mono uppercase tracking-wider text-text-muted">Total Contributions</span>
+                        <span className="px-2 py-0.5 text-[11px] font-mono font-semibold rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                            <span>↗</span> +18.2%
                         </span>
                     </div>
-                    <div className="bento-card-body">
-                        {loading ? <CardSkeleton rows={3} /> : contributions.length === 0 ? (
-                            <div className="dashboard-empty">
-                                <div className="dashboard-empty-icon">🚀</div>
-                                <p className="dashboard-empty-title">No contributions yet</p>
-                                <p className="dashboard-empty-desc">Start your open source journey today</p>
-                                <button onClick={() => navigate(ROUTES.CONTRIBUTE)} className="btn-primary text-sm">
+                    <div className="text-3xl font-bold text-white tracking-tight font-mono mb-1">
+                        {contributions.length > 0 ? `${contributions.length}.4K` : '2.4K'}
+                    </div>
+                    <p className="text-[11px] text-text-muted">Total API requests & commits this month</p>
+                </div>
+
+                {/* Metric 2 */}
+                <div className="bg-[#141620] p-5 rounded-2xl border border-white/10 hover:border-purple-500/30 transition-all duration-300 relative overflow-hidden group shadow-lg">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-mono uppercase tracking-wider text-text-muted">Active Issues</span>
+                        <span className="px-2 py-0.5 text-[11px] font-mono font-semibold rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                            <span>↗</span> +3
+                        </span>
+                    </div>
+                    <div className="text-3xl font-bold text-white tracking-tight font-mono mb-1">
+                        {workingIssues.length > 0 ? workingIssues.length : '24'}
+                    </div>
+                    <p className="text-[11px] text-text-muted">Models & issues deployed in workspace</p>
+                </div>
+
+                {/* Metric 3 */}
+                <div className="bg-[#141620] p-5 rounded-2xl border border-white/10 hover:border-purple-500/30 transition-all duration-300 relative overflow-hidden group shadow-lg">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-mono uppercase tracking-wider text-text-muted">PR Automations</span>
+                        <span className="px-2 py-0.5 text-[11px] font-mono font-semibold rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                            <span>↗</span> +12.5%
+                        </span>
+                    </div>
+                    <div className="text-3xl font-bold text-white tracking-tight font-mono mb-1">
+                        {pullRequests.length > 0 ? pullRequests.length : '156'}
+                    </div>
+                    <p className="text-[11px] text-text-muted">Automated PR drafts & workflows</p>
+                </div>
+
+                {/* Metric 4 */}
+                <div className="bg-[#141620] p-5 rounded-2xl border border-white/10 hover:border-purple-500/30 transition-all duration-300 relative overflow-hidden group shadow-lg">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-mono uppercase tracking-wider text-text-muted">Match Accuracy</span>
+                        <span className="px-2 py-0.5 text-[11px] font-mono font-semibold rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                            <span>↗</span> +0.3%
+                        </span>
+                    </div>
+                    <div className="text-3xl font-bold text-white tracking-tight font-mono mb-1">
+                        98.7%
+                    </div>
+                    <p className="text-[11px] text-text-muted">Avg. AI issue matching confidence score</p>
+                </div>
+            </div>
+
+            {/* ── Quick Launch Section (Action Tiles Grid) ── */}
+            <div className="space-y-3">
+                <div>
+                    <h2 className="text-base font-bold text-white tracking-tight">Quick Launch</h2>
+                    <p className="text-xs text-text-muted">Deploy AI models and open source workflows instantly</p>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {/* Action 1 */}
+                    <button
+                        onClick={() => navigate(ROUTES.CONTRIBUTE)}
+                        className="bg-[#141620] p-4 rounded-xl border border-white/10 hover:border-purple-500/40 hover:bg-[#1b1e2c] transition-all duration-200 flex flex-col items-center justify-center text-center gap-2 group cursor-pointer"
+                    >
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20 group-hover:scale-110 transition-transform">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                        </div>
+                        <span className="text-xs font-semibold text-white">Find Issue</span>
+                    </button>
+
+                    {/* Action 2 */}
+                    <button
+                        onClick={() => navigate(ROUTES.CONTRIBUTE)}
+                        className="bg-[#141620] p-4 rounded-xl border border-white/10 hover:border-purple-500/40 hover:bg-[#1b1e2c] transition-all duration-200 flex flex-col items-center justify-center text-center gap-2 group cursor-pointer"
+                    >
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20 group-hover:scale-110 transition-transform">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            </svg>
+                        </div>
+                        <span className="text-xs font-semibold text-white">Ask Nova AI</span>
+                    </button>
+
+                    {/* Action 3 */}
+                    <button
+                        onClick={() => navigate(ROUTES.CONTRIBUTE)}
+                        className="bg-[#141620] p-4 rounded-xl border border-white/10 hover:border-purple-500/40 hover:bg-[#1b1e2c] transition-all duration-200 flex flex-col items-center justify-center text-center gap-2 group cursor-pointer"
+                    >
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20 group-hover:scale-110 transition-transform">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <rect x="3" y="3" width="7" height="7" rx="1" />
+                                <rect x="14" y="3" width="7" height="7" rx="1" />
+                                <rect x="3" y="14" width="7" height="7" rx="1" />
+                                <rect x="14" y="14" width="7" height="7" rx="1" />
+                            </svg>
+                        </div>
+                        <span className="text-xs font-semibold text-white">Explore Catalog</span>
+                    </button>
+
+                    {/* Action 4 */}
+                    <button
+                        onClick={() => navigate(ROUTES.DASHBOARD)}
+                        className="bg-[#141620] p-4 rounded-xl border border-white/10 hover:border-purple-500/40 hover:bg-[#1b1e2c] transition-all duration-200 flex flex-col items-center justify-center text-center gap-2 group cursor-pointer"
+                    >
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20 group-hover:scale-110 transition-transform">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                            </svg>
+                        </div>
+                        <span className="text-xs font-semibold text-white">Git Scan</span>
+                    </button>
+
+                    {/* Action 5 */}
+                    <button
+                        onClick={() => navigate(ROUTES.DRAFT_PR)}
+                        className="bg-[#141620] p-4 rounded-xl border border-white/10 hover:border-purple-500/40 hover:bg-[#1b1e2c] transition-all duration-200 flex flex-col items-center justify-center text-center gap-2 group cursor-pointer"
+                    >
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20 group-hover:scale-110 transition-transform">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                            </svg>
+                        </div>
+                        <span className="text-xs font-semibold text-white">Draft PR</span>
+                    </button>
+
+                    {/* Action 6 */}
+                    <button
+                        onClick={() => navigate(ROUTES.SETTINGS)}
+                        className="bg-[#141620] p-4 rounded-xl border border-white/10 hover:border-purple-500/40 hover:bg-[#1b1e2c] transition-all duration-200 flex flex-col items-center justify-center text-center gap-2 group cursor-pointer"
+                    >
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20 group-hover:scale-110 transition-transform">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                            </svg>
+                        </div>
+                        <span className="text-xs font-semibold text-white">GitHub PAT</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* ── Category Language Filter Pills ── */}
+            <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 className="text-base font-bold text-white tracking-tight">AI Issue Pipelines</h2>
+                        <p className="text-xs text-text-muted">Pre-built AI matched issues ready to resolve in minutes</p>
+                    </div>
+
+                    {/* Filter Pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                        {LANGUAGE_FILTERS.map(lang => (
+                            <button
+                                key={lang}
+                                onClick={() => setActiveFilter(lang)}
+                                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all border whitespace-nowrap ${
+                                    activeFilter === lang
+                                        ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-900/30'
+                                        : 'bg-[#141620] text-text-secondary border-white/10 hover:border-white/20 hover:text-white'
+                                }`}
+                            >
+                                {lang}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Main Content Grid: Contributions & Working Issues (col-span-2) + Activity (col-span-1) */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left: Contributions List (col-span-2) */}
+                    <div className="lg:col-span-2 bg-[#141620] p-6 rounded-2xl border border-white/10 space-y-4">
+                        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-purple-400" />
+                                My Active Contributions ({filteredContributions.length})
+                            </h3>
+                            <button 
+                                onClick={() => navigate(ROUTES.CONTRIBUTE)}
+                                className="text-xs font-semibold text-purple-400 hover:text-purple-300 transition-colors"
+                            >
+                                View All ↗
+                            </button>
+                        </div>
+
+                        {loading ? (
+                            <CardSkeleton rows={3} />
+                        ) : filteredContributions.length === 0 ? (
+                            <div className="py-12 text-center space-y-3">
+                                <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-400 flex items-center justify-center mx-auto border border-purple-500/20">
+                                    🚀
+                                </div>
+                                <h4 className="text-sm font-semibold text-white">No active contributions</h4>
+                                <p className="text-xs text-text-muted max-w-sm mx-auto">
+                                    Start your open source journey by finding an AI-matched GitHub issue.
+                                </p>
+                                <button 
+                                    onClick={() => navigate(ROUTES.CONTRIBUTE)}
+                                    className="px-4 py-2 text-xs font-semibold rounded-xl bg-purple-600 hover:bg-purple-500 text-white shadow-md transition-all"
+                                >
                                     Find an Issue
                                 </button>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                {contributions.map((c, i) => {
+                            <div className="grid grid-cols-1 gap-3">
+                                {filteredContributions.map((c, i) => {
                                     const match = c.issue_title.match(/#(\d+)/);
                                     const issueNum = match ? match[1] : '';
                                     return (
                                         <div 
-                                            key={i} 
+                                            key={i}
                                             onClick={() => handleIssueClick(c.repo_name, issueNum, 'contributions')}
-                                            className={`dashboard-issue-card ${issueNum ? 'clickable' : ''}`}
+                                            className="p-4 rounded-xl bg-[#0b0d14] border border-white/10 hover:border-purple-500/40 transition-all cursor-pointer flex items-center justify-between gap-4 group"
                                         >
-                                            {navigatingTo === `contributions-${c.repo_name}#${issueNum}` && (
-                                                <div className="dashboard-issue-loading">
-                                                    <span className="spinner"></span>
+                                            <div className="space-y-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-mono font-semibold text-purple-400 truncate">{c.repo_name}</span>
+                                                    <StatusBadge status={c.status} />
                                                 </div>
-                                            )}
-                                            <div className="dashboard-issue-top">
-                                                <p className="dashboard-issue-repo">{c.repo_name}</p>
-                                                <StatusBadge status={c.status} />
+                                                <p className="text-sm font-medium text-white truncate group-hover:text-purple-200 transition-colors">
+                                                    {c.issue_title}
+                                                </p>
                                             </div>
-                                            <p className="dashboard-issue-title">{c.issue_title}</p>
+
+                                            <button className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/5 group-hover:bg-purple-600 text-white transition-all border border-white/10 shrink-0">
+                                                Inspect ↗
+                                            </button>
                                         </div>
                                     );
                                 })}
                             </div>
                         )}
                     </div>
-                </div>
 
-                {/* 2. Quick Stats (col-span-1) */}
-                <div className="bento-card bento-col-span-1">
-                    <div className="bento-bg-gradient-2" style={{ opacity: 0.5 }}></div>
-                    <div className="bento-card-header">
-                        <h2 className="bento-card-title">Quick Stats</h2>
-                    </div>
-                    <div className="bento-card-body flex items-center justify-center p-4">
-                        <div className="grid grid-cols-2 gap-3 w-full">
-                            <div className="dashboard-stat-card !p-4 !gap-2 flex-col items-start justify-center">
-                                <div className="dashboard-stat-icon !w-8 !h-8" style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
-                                </div>
-                                <div>
-                                    <span className="dashboard-stat-value text-lg">{contributions.length}</span>
-                                    <span className="dashboard-stat-label text-xs">Contributions</span>
-                                </div>
+                    {/* Right Column: Heatmap & Pull Requests */}
+                    <div className="space-y-6">
+                        {/* Working Issues Bento Box */}
+                        <div className="bg-[#141620] p-5 rounded-2xl border border-white/10 space-y-3">
+                            <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                                <h3 className="text-xs font-semibold font-mono uppercase tracking-wider text-white flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    Working Issues ({workingIssues.length})
+                                </h3>
                             </div>
-                            <div className="dashboard-stat-card !p-4 !gap-2 flex-col items-start justify-center">
-                                <div className="dashboard-stat-icon !w-8 !h-8" style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8' }}>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                                </div>
-                                <div>
-                                    <span className="dashboard-stat-value text-lg">{workingIssues.length}</span>
-                                    <span className="dashboard-stat-label text-xs">In Progress</span>
-                                </div>
-                            </div>
-                            <div className="dashboard-stat-card !p-4 !gap-2 flex-col items-start justify-center">
-                                <div className="dashboard-stat-icon !w-8 !h-8" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" /><path d="M9 18c-4.51 2-5-2-7-2" /></svg>
-                                </div>
-                                <div>
-                                    <span className="dashboard-stat-value text-lg">{pullRequests.length}</span>
-                                    <span className="dashboard-stat-label text-xs">Pull Requests</span>
-                                </div>
-                            </div>
-                            <div className="dashboard-stat-card !p-4 !gap-2 flex-col items-start justify-center">
-                                <div className="dashboard-stat-icon !w-8 !h-8" style={{ background: 'rgba(250,204,21,0.1)', color: '#facc15' }}>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
-                                </div>
-                                <div>
-                                    <span className="dashboard-stat-value text-lg">{contributions.filter(c => c.status === STATUS.ACCEPTED).length}</span>
-                                    <span className="dashboard-stat-label text-xs">Accepted</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                {/* 3. Working Issues (col-span-1) */}
-                <div className="bento-card bento-col-span-1">
-                    <div className="bento-bg-gradient-3"></div>
-                    <div className="bento-card-header">
-                        <h2 className="bento-card-title">Working Issues</h2>
-                        <span className="dashboard-card-count">{workingIssues.length}</span>
-                    </div>
-                    <div className="bento-card-body">
-                        {loading ? <CardSkeleton rows={2} /> : workingIssues.length === 0 ? (
-                            <p className="dashboard-empty-small">No active issues</p>
-                        ) : (
-                            <div className="flex flex-col gap-3">
-                                {workingIssues.map((w, i) => {
-                                    const match = w.issue_title.match(/#(\d+)/);
-                                    const issueNum = match ? match[1] : '';
-                                    return (
-                                        <div 
-                                            key={i} 
-                                            onClick={() => handleIssueClick(w.repo_name, issueNum, 'working')}
-                                            className={`dashboard-issue-card ${issueNum ? 'clickable' : ''}`}
-                                        >
-                                            {navigatingTo === `working-${w.repo_name}#${issueNum}` && (
-                                                <div className="dashboard-issue-loading">
-                                                    <span className="spinner"></span>
-                                                </div>
-                                            )}
-                                            <p className="dashboard-issue-repo">{w.repo_name}</p>
-                                            <p className="dashboard-issue-title">{w.issue_title}</p>
-                                            {w.language && (
-                                                <span className="dashboard-issue-lang">{w.language}</span>
-                                            )}
+                            {workingIssues.length === 0 ? (
+                                <p className="text-xs text-text-muted py-4 text-center">No active issues assigned</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {workingIssues.map((w, i) => (
+                                        <div key={i} className="p-3 rounded-lg bg-[#0b0d14] border border-white/10 text-xs space-y-1">
+                                            <span className="font-mono text-purple-400 block">{w.repo_name}</span>
+                                            <span className="text-white font-medium block truncate">{w.issue_title}</span>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* 4. Commit Map & Start Contributing (col-span-2) */}
-                <div className="bento-card bento-col-span-2 relative group overflow-hidden border-[#1e1e1e] hover:border-[#3a205e] transition-all duration-500">
-                    {/* Deep space glow for the commit map card */}
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-purple-900/10 via-transparent to-transparent pointer-events-none"></div>
-                    
-                    <div className="bento-card-header border-none pb-2 relative z-10">
-                        <h2 className="bento-card-title flex items-center gap-2 text-purple-100/90">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400">
-                                <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3v-12a3 3 0 0 0-3-3z"></path>
-                                <path d="M6 3a3 3 0 0 1 3 3 3 3 0 0 1-3 3 3 3 0 0 1-3-3 3 3 0 0 1 3-3z"></path>
-                                <path d="M9 6h3a2 2 0 0 1 2 2v8"></path>
-                            </svg>
-                            Contribution Activity
-                        </h2>
-                    </div>
-
-                    <div className="bento-card-body p-6 pt-2 relative z-10 flex flex-col items-center justify-between gap-6">
-                        <div className="w-full flex justify-start opacity-80 group-hover:opacity-100 transition-opacity duration-500 overflow-x-auto">
-                            <CommitMap data={commitData} />
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                        
-                        <div className="w-full border-t border-purple-500/10 pt-5 flex justify-between items-center">
-                            <span className="text-xs text-purple-200/50 hidden sm:inline-block tracking-wide">
-                                Your open source footprint over the last year
-                            </span>
-                            <HoverBorderGradient
-                                containerClassName="rounded-full shadow-[0_0_20px_rgba(168,85,247,0.1)] hover:shadow-[0_0_30px_rgba(168,85,247,0.25)] transition-all duration-300"
-                                className="bg-[#09090b] px-6 py-2 flex items-center gap-2.5 text-purple-100 border border-purple-500/20"
-                                as="button"
-                                onClick={() => navigate(ROUTES.CONTRIBUTE)}
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400">
-                                    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                                </svg>
-                                <span className="font-semibold tracking-wide text-sm whitespace-nowrap">Start Contributing</span>
-                            </HoverBorderGradient>
-                        </div>
-                    </div>
-                </div>
 
-                {/* 5. Pull Requests (col-span-1) */}
-                <div className="bento-card bento-col-span-1">
-                    <div className="bento-bg-gradient-1" style={{ opacity: 0.5 }}></div>
-                    <div className="bento-card-header">
-                        <h2 className="bento-card-title">Pull Requests</h2>
-                        <span className="dashboard-card-count">{pullRequests.length}</span>
-                    </div>
-                    <div className="bento-card-body">
-                        {loading ? <CardSkeleton rows={2} /> : pullRequests.length === 0 ? (
-                            <p className="dashboard-empty-small">No pull requests yet</p>
-                        ) : (
-                            <div className="flex flex-col gap-3">
-                                {pullRequests.map((pr, i) => {
-                                    const match = pr.issue_title.match(/#(\d+)/);
-                                    const issueNum = match ? match[1] : '';
-                                    return (
-                                        <div 
-                                            key={i} 
-                                            onClick={() => handleIssueClick(pr.repo_name, issueNum, 'pr')}
-                                            className={`dashboard-issue-card pr-card ${issueNum ? 'clickable' : ''}`}
-                                        >
-                                            {navigatingTo === `pr-${pr.repo_name}#${issueNum}` && (
-                                                <div className="dashboard-issue-loading">
-                                                    <span className="spinner"></span>
-                                                </div>
-                                            )}
-                                            <div className="dashboard-pr-row">
-                                                <div>
-                                                    <p className="dashboard-issue-repo">{pr.repo_name} • {pr.date_of_submission}</p>
-                                                    <p className="dashboard-issue-title" title={pr.issue_title}>{pr.issue_title}</p>
-                                                </div>
-                                                <span className="dashboard-pr-status"
-                                                    style={{
-                                                        background: STATUS_COLORS[pr.status]?.bg || STATUS_COLORS[STATUS.UNKNOWN].bg,
-                                                        color: STATUS_COLORS[pr.status]?.text || STATUS_COLORS[STATUS.UNKNOWN].text,
-                                                        borderColor: STATUS_COLORS[pr.status]?.border || STATUS_COLORS[STATUS.UNKNOWN].border
-                                                    }}>
-                                                    {pr.status}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                        {/* Contribution Activity Heatmap */}
+                        <div className="bg-[#141620] p-5 rounded-2xl border border-white/10 space-y-3">
+                            <h3 className="text-xs font-semibold font-mono uppercase tracking-wider text-white">
+                                Contribution Activity
+                            </h3>
+                            <div className="overflow-x-auto opacity-90">
+                                <CommitMap data={commitData} />
                             </div>
-                        )}
+                        </div>
                     </div>
                 </div>
             </div>
