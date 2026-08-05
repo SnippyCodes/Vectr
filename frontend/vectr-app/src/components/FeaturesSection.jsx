@@ -42,25 +42,29 @@ export default function FeaturesSection() {
     ];
 
     return (
-        <div className="features-section">
-            <div className="features-header">
-                <h4 className="features-title">
-                    Everything you need to contribute
-                </h4>
-                <p className="features-subtitle">
-                    From AI-powered issue matching to automated PR drafts, Vectr
-                    streamlines your open source journey end-to-end.
-                </p>
-            </div>
-            <div className="features-grid-wrapper">
-                <div className="features-grid">
-                    {features.map((feature) => (
-                        <FeatureCard key={feature.title} className={feature.className}>
-                            <FeatureTitle>{feature.title}</FeatureTitle>
-                            <FeatureDescription>{feature.description}</FeatureDescription>
-                            <div className="feature-skeleton-wrapper">{feature.skeleton}</div>
-                        </FeatureCard>
-                    ))}
+        <div className="login-right">
+            <div className="login-features-wrapper">
+                <div className="features-section">
+                    <div className="features-header">
+                        <h4 className="features-title">
+                            Everything you need to contribute
+                        </h4>
+                        <p className="features-subtitle">
+                            From AI-powered issue matching to automated PR drafts, Vectr
+                            streamlines your open source journey end-to-end.
+                        </p>
+                    </div>
+                    <div className="features-grid-wrapper">
+                        <div className="features-grid">
+                            {features.map((feature) => (
+                                <FeatureCard key={feature.title} className={feature.className}>
+                                    <FeatureTitle>{feature.title}</FeatureTitle>
+                                    <FeatureDescription>{feature.description}</FeatureDescription>
+                                    <div className="feature-skeleton-wrapper">{feature.skeleton}</div>
+                                </FeatureCard>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -98,122 +102,109 @@ const SkeletonOne = () => {
                     />
                 </div>
             </div>
-            <div className="skeleton-fade-bottom" />
-            <div className="skeleton-fade-top" />
         </div>
     );
 };
 
-/* ─── Skeleton Two: Stacked Language/Tech cards ───────────────────── */
+/* ─── Skeleton Two: Language Chips ────────────────────────────────── */
 const SkeletonTwo = () => {
-    const techs = [
+    const languagesRow1 = [
         { name: "Python", color: "#3572A5" },
         { name: "JavaScript", color: "#f1e05a" },
         { name: "TypeScript", color: "#3178c6" },
         { name: "Rust", color: "#dea584" },
         { name: "Go", color: "#00ADD8" },
     ];
-
-    const cardVariants = {
-        whileHover: {
-            scale: 1.1,
-            rotate: 0,
-            zIndex: 100,
-        },
-        whileTap: {
-            scale: 1.1,
-            rotate: 0,
-            zIndex: 100,
-        },
-    };
+    const languagesRow2 = [
+        { name: "C++", color: "#f34b7d" },
+        { name: "Ruby", color: "#701516" },
+        { name: "Java", color: "#b07219" },
+        { name: "Kotlin", color: "#A97BFF" },
+        { name: "Swift", color: "#F05138" },
+    ];
 
     return (
         <div className="skeleton-two">
+            <div className="skeleton-two-fade-left"></div>
+            <div className="skeleton-two-fade-right"></div>
             <div className="skeleton-two-row">
-                {techs.map((tech, idx) => (
+                {languagesRow1.map((lang, idx) => (
                     <motion.div
-                        variants={cardVariants}
-                        key={"tech-" + idx}
-                        style={{ rotate: Math.random() * 20 - 10 }}
-                        whileHover="whileHover"
-                        whileTap="whileTap"
+                        key={"row1-" + idx}
+                        whileHover={{
+                            scale: 1.05,
+                            rotate: (Math.random() - 0.5) * 6,
+                            zIndex: 20,
+                        }}
                         className="skeleton-two-card"
                     >
                         <div className="skeleton-two-card-inner">
                             <span
                                 className="skeleton-two-dot"
-                                style={{ background: tech.color }}
+                                style={{ backgroundColor: lang.color }}
                             />
-                            <span className="skeleton-two-name">{tech.name}</span>
+                            <span className="skeleton-two-name">{lang.name}</span>
                         </div>
                     </motion.div>
                 ))}
             </div>
-            <div className="skeleton-two-row" style={{ marginLeft: "-20px" }}>
-                {["C++", "Ruby", "Java", "Kotlin", "Swift"].map((name, idx) => (
+            <div className="skeleton-two-row" style={{ marginLeft: "20px" }}>
+                {languagesRow2.map((lang, idx) => (
                     <motion.div
-                        key={"tech-2-" + idx}
-                        style={{ rotate: Math.random() * 20 - 10 }}
-                        variants={cardVariants}
-                        whileHover="whileHover"
-                        whileTap="whileTap"
+                        key={"row2-" + idx}
+                        whileHover={{
+                            scale: 1.05,
+                            rotate: (Math.random() - 0.5) * 6,
+                            zIndex: 20,
+                        }}
                         className="skeleton-two-card"
                     >
                         <div className="skeleton-two-card-inner">
                             <span
                                 className="skeleton-two-dot"
-                                style={{ background: ["#f34b7d", "#701516", "#b07219", "#A97BFF", "#F05138"][idx] }}
+                                style={{ backgroundColor: lang.color }}
                             />
-                            <span className="skeleton-two-name">{name}</span>
+                            <span className="skeleton-two-name">{lang.name}</span>
                         </div>
                     </motion.div>
                 ))}
             </div>
-            <div className="skeleton-two-fade-left" />
-            <div className="skeleton-two-fade-right" />
         </div>
     );
 };
 
-/* ─── Skeleton Three: PR diff preview ─────────────────────────────── */
+/* ─── Skeleton Three: Diff Preview ───────────────────────────────── */
 const SkeletonThree = () => {
     return (
         <div className="skeleton-three">
             <div className="skeleton-three-inner">
-                {/* Fake diff block */}
                 <div className="skeleton-diff">
                     <div className="skeleton-diff-header">
-                        <span className="skeleton-diff-filename">src/utils/helper.js</span>
-                        <span className="skeleton-diff-badge">+42 −8</span>
+                        <span className="skeleton-diff-filename">
+                            src/core/matching.py
+                        </span>
+                        <span className="skeleton-diff-badge">+12 -3</span>
                     </div>
                     <div className="skeleton-diff-body">
                         <div className="skeleton-diff-line skeleton-diff-context">
                             <span className="skeleton-diff-ln">14</span>
-                            <span>{"  const result = [];"}</span>
+                            <span>def match_issues_to_user(user_profile):</span>
                         </div>
                         <div className="skeleton-diff-line skeleton-diff-remove">
                             <span className="skeleton-diff-ln">15</span>
-                            <span>{"- for (let i = 0; i < arr.length; i++) {"}</span>
+                            <span>- score = simple_skill_match(user_profile)</span>
                         </div>
                         <div className="skeleton-diff-line skeleton-diff-add">
                             <span className="skeleton-diff-ln">15</span>
-                            <span>{"+ arr.forEach((item, i) => {"}</span>
+                            <span>+ score = nova_ai.calculate_embeddings(user_profile)</span>
                         </div>
                         <div className="skeleton-diff-line skeleton-diff-add">
                             <span className="skeleton-diff-ln">16</span>
-                            <span>{"+ if (item.isValid) {"}</span>
+                            <span>+ ranking = rank_by_difficulty_preference(score)</span>
                         </div>
                         <div className="skeleton-diff-line skeleton-diff-context">
                             <span className="skeleton-diff-ln">17</span>
-                            <span>{"    result.push(transform(item));"}</span>
-                        </div>
-                        <div className="skeleton-diff-line skeleton-diff-add">
-                            <span className="skeleton-diff-ln">18</span>
-                            <span>{"+ }"}</span>
-                        </div>
-                        <div className="skeleton-diff-line skeleton-diff-context">
-                            <span className="skeleton-diff-ln">19</span>
-                            <span>{"  });"}</span>
+                            <span> return ranking</span>
                         </div>
                     </div>
                 </div>
@@ -222,40 +213,30 @@ const SkeletonThree = () => {
     );
 };
 
-/* ─── Skeleton Four: World Map ────────────────────────────────────── */
+/* ─── Skeleton Four: World Map ──────────────────────────────────── */
 const SkeletonFour = () => {
     return (
         <div className="skeleton-four">
             <WorldMap
-                lineColor="#4ade80"
                 dots={[
                     {
-                        start: { lat: 64.2008, lng: -149.4937 }, // Alaska (Fairbanks)
-                        end: { lat: 34.0522, lng: -118.2437 },   // Los Angeles
+                        start: { lat: 37.7749, lng: -122.4194 }, // SF
+                        end: { lat: 51.5074, lng: -0.1278 }, // London
                     },
                     {
-                        start: { lat: 64.2008, lng: -149.4937 }, // Alaska (Fairbanks)
-                        end: { lat: -15.7975, lng: -47.8919 },   // Brazil (Brasília)
+                        start: { lat: 51.5074, lng: -0.1278 }, // London
+                        end: { lat: 28.6139, lng: 77.209 }, // New Delhi
                     },
                     {
-                        start: { lat: -15.7975, lng: -47.8919 }, // Brazil (Brasília)
-                        end: { lat: 38.7223, lng: -9.1393 },     // Lisbon
+                        start: { lat: 28.6139, lng: 77.209 }, // New Delhi
+                        end: { lat: 35.6762, lng: 139.6503 }, // Tokyo
                     },
                     {
-                        start: { lat: 51.5074, lng: -0.1278 },   // London
-                        end: { lat: 28.6139, lng: 77.209 },      // New Delhi
-                    },
-                    {
-                        start: { lat: 28.6139, lng: 77.209 },    // New Delhi
-                        end: { lat: 43.1332, lng: 131.9113 },    // Vladivostok
-                    },
-                    {
-                        start: { lat: 28.6139, lng: 77.209 },    // New Delhi
-                        end: { lat: -1.2921, lng: 36.8219 },     // Nairobi
+                        start: { lat: -33.8688, lng: 151.2093 }, // Sydney
+                        end: { lat: 37.7749, lng: -122.4194 }, // SF
                     },
                 ]}
             />
         </div>
     );
 };
-
