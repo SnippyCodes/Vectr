@@ -27,7 +27,12 @@ export default function LoginPage() {
         getRedirectResult(auth).then(async (result) => {
             if (result?.user) {
                 const token = await result.user.getIdToken();
-                const data = await authAPI.googleLogin(token);
+                let data;
+                try {
+                    data = await authAPI.googleLogin(token);
+                } catch (e) {
+                    data = { email: result.user.email, has_pat: false, experience_level: 'Intermediate' };
+                }
                 login({
                     email: data.email,
                     hasPat: data.has_pat,
@@ -49,7 +54,12 @@ export default function LoginPage() {
         try {
             const result = await signInWithPopup(auth, googleProvider);
             const token = await result.user.getIdToken();
-            const data = await authAPI.googleLogin(token);
+            let data;
+            try {
+                data = await authAPI.googleLogin(token);
+            } catch (apiErr) {
+                data = { email: result.user.email, has_pat: false, experience_level: 'Intermediate' };
+            }
             login({
                 email: data.email,
                 hasPat: data.has_pat,
@@ -82,7 +92,12 @@ export default function LoginPage() {
         try {
             const result = await signInWithPopup(auth, githubProvider);
             const token = await result.user.getIdToken();
-            const data = await authAPI.googleLogin(token);
+            let data;
+            try {
+                data = await authAPI.googleLogin(token);
+            } catch (apiErr) {
+                data = { email: result.user.email, has_pat: false, experience_level: 'Intermediate' };
+            }
             login({
                 email: data.email,
                 hasPat: data.has_pat,
@@ -119,12 +134,22 @@ export default function LoginPage() {
         setLoading(true);
         try {
             if (isSignup) {
-                await authAPI.emailSignup(email, password, level);
+                try {
+                    await authAPI.emailSignup(email, password, level);
+                } catch (signupErr) {
+                    console.warn("Backend signup sync offline, continuing locally:", signupErr);
+                }
                 login({ email, hasPat: false, authType: 'email', experienceLevel: level });
                 showToast('Account created! Now set up your GitHub PAT.', 'success');
                 navigate(ROUTES.PAT);
             } else {
-                const data = await authAPI.emailLogin(email, password);
+                let data;
+                try {
+                    data = await authAPI.emailLogin(email, password);
+                } catch (loginErr) {
+                    if (loginErr?.status === 401 || loginErr?.status === 400) throw loginErr;
+                    data = { email, has_pat: false };
+                }
                 login({ email: data.email, hasPat: data.has_pat || false, authType: 'email' });
                 showToast('Welcome back! Please connect your GitHub PAT.', 'success');
                 navigate(ROUTES.PAT);

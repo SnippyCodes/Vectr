@@ -28,10 +28,13 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 origins = [
+    "https://vectropensource.me",
+    "https://www.vectropensource.me",
     "https://vectoropensource.me",
     "https://www.vectoropensource.me",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:3000",
     "http://localhost:8000",
     "*"
 ]
@@ -58,6 +61,10 @@ app.include_router(progress.routes)
 @app.get('/')
 def read_root():
     return {'Hello': 'Amazon Nova'}
+
+@app.get('/health')
+def health_check():
+    return {'status': 'healthy', 'service': 'Vectr API', 'version': '1.0.0'}
 
 # Apply the rate limit to an endpoint (e.g., 5 requests per minute)
 @app.get("/api/heavy-computation")

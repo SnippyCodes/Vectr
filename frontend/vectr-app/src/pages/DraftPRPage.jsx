@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../constants';
 import { useToast } from '../components/Toast';
 import NovaChat from '../components/NovaChat';
+import PRReadinessGrader from '../components/PRReadinessGrader';
 import { contributionAPI, novaAPI, progressAPI } from '../services/api';
 
 export default function DraftPRPage() {
@@ -453,6 +454,32 @@ export default function DraftPRPage() {
                             </div>
                         ) : (
                         <div className="space-y-4 flex-1 min-h-0 block-scroll">
+                            <PRReadinessGrader
+                                prTitle={prTitle}
+                                prBody={prBody}
+                                codeDiff={codeDiff || codeChanges}
+                                issueNumber={issueNumber}
+                                repoName={repoName}
+                                disabled={isLocked}
+                                onApplyPolish={(newTitle, newBody) => {
+                                    setPrTitle(newTitle);
+                                    setPrBody(newBody);
+                                    setSavedPrTitle(newTitle);
+                                    setSavedPrBody(newBody);
+                                    showToast('AI polished your PR draft to match open source standards!', 'success');
+                                    if (user?.email && repoName && issueNumber) {
+                                        progressAPI.save({
+                                            user_email: user.email,
+                                            repo_name: repoName,
+                                            issue_number: parseInt(issueNumber),
+                                            pr_title: newTitle,
+                                            pr_body: newBody,
+                                            step: 'draft_pr'
+                                        }).catch(err => console.warn('Autosave notice:', err));
+                                    }
+                                }}
+                            />
+
                             <div>
                                 <label htmlFor="pr-title" className="text-text-muted text-xs mb-1 block">Title</label>
                                 {isEditing ? (

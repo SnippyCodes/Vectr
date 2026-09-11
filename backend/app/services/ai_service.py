@@ -71,7 +71,7 @@ def call_ai_engine(
                     headers={
                         "Authorization": f"Bearer {or_key}",
                         "Content-Type": "application/json",
-                        "HTTP-Referer": "https://vectoropensource.me",
+                        "HTTP-Referer": "https://vectropensource.me",
                         "X-Title": "Vectr AI Mentor",
                     },
                     json={

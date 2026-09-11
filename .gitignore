@@ -38,3 +38,6 @@ Thumbs.db
 *.json
 !package.json
 !package-lock.json
+
+# Local agent skills (Garry Tan / gstack — do NOT push)
+.agents/
