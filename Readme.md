@@ -278,7 +278,6 @@ This starts both the backend (port 8000) and frontend (port 80 via Nginx) contai
 ## Team
 
 - **Aaryan** ([@SnippyCodes](https://github.com/SnippyCodes)) -- Backend Architecture, AWS RDS Integration, AI Prompt Engineering
-- **Yogesh** ([@Yog-1to1-code](https://github.com/Yog-1to1-code)) -- Frontend Development, PAT Authentication, UI/UX
 
 ---
 
