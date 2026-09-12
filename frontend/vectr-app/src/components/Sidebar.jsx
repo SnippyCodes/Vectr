@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES, APP } from '../constants';
@@ -12,7 +12,17 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
-    const [isDarkMode, setIsDarkMode] = useState(true);
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        return localStorage.getItem('vectr-theme') !== 'light';
+    });
+
+    // Apply theme class to document root whenever isDarkMode changes
+    const toggleTheme = () => {
+        const nextDark = !isDarkMode;
+        setIsDarkMode(nextDark);
+        localStorage.setItem('vectr-theme', nextDark ? 'dark' : 'light');
+        document.documentElement.classList.toggle('light-mode', !nextDark);
+    };
 
     const initials = user?.githubUsername?.charAt(0)?.toUpperCase()
         || user?.email?.charAt(0)?.toUpperCase()
@@ -41,7 +51,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     return (
         <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} bg-[#080b1c] border-r border-white/10 p-3 flex flex-col justify-between select-none`}>
             <div className="space-y-4">
-                {/* ─── Header: Brand Logo & Collapse ─── */}
+                {/* â”€â”€â”€ Header: Brand Logo & Collapse â”€â”€â”€ */}
                 <div className="flex items-center justify-between px-2 pt-1 pb-2">
                     <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate(ROUTES.DASHBOARD)}>
                         <VectrLogo size={30} />
@@ -63,7 +73,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
                     </button>
                 </div>
 
-                {/* ─── User Profile Welcome Card ─── */}
+                {/* â”€â”€â”€ User Profile Welcome Card â”€â”€â”€ */}
                 {!collapsed && (
                     <div className="bg-[#12162e]/90 border border-white/10 rounded-2xl p-4 relative overflow-hidden backdrop-blur-xl group">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-xl pointer-events-none" />
@@ -77,12 +87,12 @@ export default function Sidebar({ collapsed, setCollapsed }) {
 
                             {/* Sun/Moon Theme Toggle Pill */}
                             <button
-                                onClick={() => setIsDarkMode(!isDarkMode)}
+                                onClick={toggleTheme}
                                 className="w-12 h-6 rounded-full bg-[#080b1c] border border-white/10 p-0.5 flex items-center justify-between text-[10px] cursor-pointer transition-colors relative"
                                 title="Toggle Mode"
                             >
-                                <span className="z-10 pl-1">🌙</span>
-                                <span className="z-10 pr-1">☀️</span>
+                                <span className="z-10 pl-1">ðŸŒ™</span>
+                                <span className="z-10 pr-1">â˜€ï¸</span>
                                 <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-blue-500 transition-transform duration-300 ${isDarkMode ? 'left-0.5' : 'left-6.5'}`} />
                             </button>
                         </div>
@@ -99,7 +109,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
                     </div>
                 )}
 
-                {/* ─── Navigation Options Box ─── */}
+                {/* â”€â”€â”€ Navigation Options Box â”€â”€â”€ */}
                 <div className={`${!collapsed ? 'bg-[#0e122b]/80 border border-white/10 rounded-2xl p-2' : ''} space-y-1`}>
                     <NavLink to={ROUTES.DASHBOARD} className={({ isActive }) => navLinkClass(isActive)}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -155,7 +165,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
                 </div>
             </div>
 
-            {/* ─── Bottom Actions ─── */}
+            {/* â”€â”€â”€ Bottom Actions â”€â”€â”€ */}
             <div className="space-y-3 pt-2">
                 {!collapsed && (
                     <button

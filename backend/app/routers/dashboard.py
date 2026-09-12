@@ -1,23 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException
+﻿from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 import models as models
 import app.schemas as schemas
 from database import get_db
-import requests as rq
-
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-import models as models
-import app.schemas as schemas
-from database import get_db
-import requests as rq
+import httpx
 from app.utils.encryption import decrypt_pat
 from datetime import datetime, timedelta
+from app.main import limiter
 
 routes = APIRouter(prefix="/user", tags=["Dashboard"])
 
 @routes.get("/dashboard", response_model=schemas.MainDashboardResponse)
-def user_dashboard(email: str, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+async def user_dashboard(request: Request, email: str, db: Session = Depends(get_db)):
     # 1. Fetch User from DB
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
@@ -35,130 +30,131 @@ def user_dashboard(email: str, db: Session = Depends(get_db)):
     }
     
     try:
-        # 3. Get User Profile from GitHub (to get standard Github Username)
-        profile_res = rq.get("https://api.github.com/user", headers=headers)
-        profile_res.raise_for_status()
-        github_username = profile_res.json().get("login", "Unknown")
-        
-        # 4. Fetch actual GitHub Commit Map using GraphQL API
-        graphql_url = "https://api.github.com/graphql"
-        query = """
-        query($login: String!) {
-          user(login: $login) {
-            contributionsCollection {
-              contributionCalendar {
-                weeks {
-                  contributionDays {
-                    contributionCount
-                    date
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # 3. Get User Profile from GitHub (to get standard Github Username)
+            profile_res = await client.get("https://api.github.com/user", headers=headers)
+            profile_res.raise_for_status()
+            github_username = profile_res.json().get("login", "Unknown")
+            
+            # 4. Fetch actual GitHub Commit Map using GraphQL API
+            graphql_url = "https://api.github.com/graphql"
+            query = """
+            query($login: String!) {
+              user(login: $login) {
+                contributionsCollection {
+                  contributionCalendar {
+                    weeks {
+                      contributionDays {
+                        contributionCount
+                        date
+                      }
+                    }
                   }
                 }
               }
             }
-          }
-        }
-        """
-        graphql_res = rq.post(
-            graphql_url,
-            json={"query": query, "variables": {"login": github_username}},
-            headers=headers
-        )
-        
-        commit_map = []
-        if graphql_res.status_code == 200:
-            data = graphql_res.json()
-            try:
-                weeks = data["data"]["user"]["contributionsCollection"]["contributionCalendar"]["weeks"]
-                # Extract all days of contributions (usually up to 365 days)
-                days = [day for week in weeks for day in week["contributionDays"]]
-                for day in days:
-                    commit_map.append(
-                        schemas.CommitMapData(
-                            date=day["date"],
-                            count=day["contributionCount"]
-                        )
-                    )
-            except KeyError:
-                pass
-        
-        # Fallback if GraphQL fails or history is empty
-        if not commit_map:
-            today = datetime.now()
-            for i in range(364):
-                day = today - timedelta(days=363-i)
-                commit_map.append(
-                    schemas.CommitMapData(
-                        date=day.strftime("%Y-%m-%d"),
-                        count=0
-                    )
-                )
-
-        # 5. Fetch "My Contributions", "Working Issues", "Pull Requests" 
-        # Query the DB for actual contributions
-        db_contributions = db.query(models.Contributions).filter(models.Contributions.user_email == email).all()
-        
-        my_contributions = []
-        working_issues = []
-        pull_requests = []
-
-        for contrib in db_contributions:
-            # Map DB entries to ContributionItem
-            my_contributions.append(
-                schemas.ContributionItem(
-                    repo_name=contrib.repo_name,
-                    issue_title=f"Issue #{contrib.issue_number}: {contrib.issue_title}",
-                    status=contrib.status or "Unknown"
-                )
+            """
+            graphql_res = await client.post(
+                graphql_url,
+                json={"query": query, "variables": {"login": github_username}},
+                headers=headers
             )
             
-            # Map "Working" or "Currently Working" statuses to WorkingIssueItem
-            if contrib.status and contrib.status.lower() in ["working", "currently working", "in progress"]:
-                working_issues.append(
-                    schemas.WorkingIssueItem(
+            commit_map = []
+            if graphql_res.status_code == 200:
+                data = graphql_res.json()
+                try:
+                    weeks = data["data"]["user"]["contributionsCollection"]["contributionCalendar"]["weeks"]
+                    # Extract all days of contributions (usually up to 365 days)
+                    days = [day for week in weeks for day in week["contributionDays"]]
+                    for day in days:
+                        commit_map.append(
+                            schemas.CommitMapData(
+                                date=day["date"],
+                                count=day["contributionCount"]
+                            )
+                        )
+                except KeyError:
+                    pass
+            
+            # Fallback if GraphQL fails or history is empty
+            if not commit_map:
+                today = datetime.now()
+                for i in range(364):
+                    day = today - timedelta(days=363-i)
+                    commit_map.append(
+                        schemas.CommitMapData(
+                            date=day.strftime("%Y-%m-%d"),
+                            count=0
+                        )
+                    )
+
+            # 5. Fetch "My Contributions", "Working Issues", "Pull Requests" 
+            # Query the DB for actual contributions
+            db_contributions = db.query(models.Contributions).filter(models.Contributions.user_email == email).all()
+            
+            my_contributions = []
+            working_issues = []
+            pull_requests = []
+
+            for contrib in db_contributions:
+                # Map DB entries to ContributionItem
+                my_contributions.append(
+                    schemas.ContributionItem(
                         repo_name=contrib.repo_name,
                         issue_title=f"Issue #{contrib.issue_number}: {contrib.issue_title}",
-                        language=contrib.language or "Unknown"
+                        status=contrib.status or "Unknown"
                     )
                 )
                 
-            # Dynamic PR Status checking for submitted PRs
-            if contrib.pr_sent and contrib.status and contrib.status.lower() in ["waiting", "submitted", "in review", "done"]:
-                try:
-                    pr_head = f"{github_username}:fix/issue-{contrib.issue_number}"
-                    pr_check_url = f"https://api.github.com/repos/{contrib.repo_name}/pulls?head={pr_head}&state=all"
-                    pr_res = rq.get(pr_check_url, headers=headers)
-                    if pr_res.status_code == 200:
-                        prs = pr_res.json()
-                        if prs and len(prs) > 0:
-                            pr_data = prs[0]
-                            if pr_data.get("merged_at"):
-                                contrib.status = "Accepted"
+                # Map "Working" or "Currently Working" statuses to WorkingIssueItem
+                if contrib.status and contrib.status.lower() in ["working", "currently working", "in progress"]:
+                    working_issues.append(
+                        schemas.WorkingIssueItem(
+                            repo_name=contrib.repo_name,
+                            issue_title=f"Issue #{contrib.issue_number}: {contrib.issue_title}",
+                            language=contrib.language or "Unknown"
+                        )
+                    )
+                    
+                # Dynamic PR Status checking for submitted PRs
+                if contrib.pr_sent and contrib.status and contrib.status.lower() in ["waiting", "submitted", "in review", "done"]:
+                    try:
+                        pr_head = f"{github_username}:fix/issue-{contrib.issue_number}"
+                        pr_check_url = f"https://api.github.com/repos/{contrib.repo_name}/pulls?head={pr_head}&state=all"
+                        pr_res = await client.get(pr_check_url, headers=headers)
+                        if pr_res.status_code == 200:
+                            prs = pr_res.json()
+                            if prs and len(prs) > 0:
+                                pr_data = prs[0]
+                                if pr_data.get("merged_at"):
+                                    contrib.status = "Accepted"
+                                    db.commit()
+                                elif pr_data.get("state") == "closed":
+                                    contrib.status = "Rejected"
+                                    db.commit()
+                                else:
+                                    contrib.status = "Waiting" # standardize ongoing PRs
+                                    db.commit()
+                            elif contrib.status.lower() == "done":
+                                # Auto-heal "Done" if no PR exists
+                                contrib.status = "Submitted"
                                 db.commit()
-                            elif pr_data.get("state") == "closed":
-                                contrib.status = "Rejected"
-                                db.commit()
-                            else:
-                                contrib.status = "Waiting" # standardize ongoing PRs
-                                db.commit()
-                        elif contrib.status.lower() == "done":
-                            # Auto-heal "Done" if no PR exists
-                            contrib.status = "Submitted"
-                            db.commit()
-                except Exception as e:
-                    print(f"Error checking PR status for {contrib.repo_name} #{contrib.issue_number}: {e}")
+                    except Exception as e:
+                        print(f"Error checking PR status for {contrib.repo_name} #{contrib.issue_number}: {e}")
 
-            # Include any PRs in the list
-            if contrib.pr_sent or (contrib.status and contrib.status.lower() in ["waiting", "submitted", "in review", "accepted", "rejected", "done"]):
-                 # Use the DB status after dynamic update
-                 display_status = contrib.status if contrib.status else "Unknown"
-                 pull_requests.append(
-                     schemas.PullRequestItem(
-                         repo_name=contrib.repo_name,
-                         issue_title=f"#{contrib.issue_number}: {contrib.issue_title}",
-                         date_of_submission="Recent",  # We don't have a date column in Contributions yet
-                         status=display_status.capitalize() if display_status.lower() not in ["in progress", "in review", "currently working"] else display_status.title()
+                # Include any PRs in the list
+                if contrib.pr_sent or (contrib.status and contrib.status.lower() in ["waiting", "submitted", "in review", "accepted", "rejected", "done"]):
+                     # Use the DB status after dynamic update
+                     display_status = contrib.status if contrib.status else "Unknown"
+                     pull_requests.append(
+                         schemas.PullRequestItem(
+                             repo_name=contrib.repo_name,
+                             issue_title=f"#{contrib.issue_number}: {contrib.issue_title}",
+                             date_of_submission="Recent",  # We don't have a date column in Contributions yet
+                             status=display_status.capitalize() if display_status.lower() not in ["in progress", "in review", "currently working"] else display_status.title()
+                         )
                      )
-                 )
 
         # 6. Assemble Final Response
         return schemas.MainDashboardResponse(
@@ -170,7 +166,7 @@ def user_dashboard(email: str, db: Session = Depends(get_db)):
             pull_requests=pull_requests
         )
 
-    except rq.exceptions.HTTPError as e:
+    except httpx.HTTPStatusError as e:
         if e.response.status_code == 401:
             raise HTTPException(status_code=401, detail="Invalid GitHub PAT token. Please update it.")
         raise HTTPException(status_code=e.response.status_code, detail="Failed to fetch data from GitHub.")

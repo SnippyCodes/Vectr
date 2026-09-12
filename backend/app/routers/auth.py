@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+﻿from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 import requests
 import os
@@ -6,6 +6,7 @@ import models as models
 import app.schemas as schemas
 from database import get_db
 from app.utils.encryption import encrypt_pat
+from bcrypt import hashpw, checkpw, gensalt
 
 routes = APIRouter(prefix="/user",tags=["Authentication"])
 
@@ -18,7 +19,10 @@ def signup(email: str, pat: str, password: str, level: str, db: Session = Depend
         
     encrypted_pat = encrypt_pat(pat) if pat else None
     
-    new_user = models.User(email=email, github_pat=encrypted_pat, password=password, experience_lvl=level)
+    # Hash the password with bcrypt before storing
+    hashed_password = hashpw(password.encode('utf-8'), gensalt()).decode('utf-8')
+    
+    new_user = models.User(email=email, github_pat=encrypted_pat, password=hashed_password, experience_lvl=level)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -32,7 +36,11 @@ def signup(email: str, pat: str, password: str, level: str, db: Session = Depend
 def login(email: str, password: str, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == email).first()
 
-    if not user or user.password != password:
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    # Verify password using bcrypt
+    if not checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
         raise HTTPException(status_code=401, detail="Invalid username or password")
         
     return {"message": "Login Successful", "email": user.email, "has_pat": bool(user.github_pat)}
@@ -45,8 +53,8 @@ def google_login(request: Request, db: Session = Depends(get_db)):
         
     token = auth_header.split(" ")[1]
     
-    # We use Google's Identity Toolkit API to verify the Firebase ID token
-    api_key = os.getenv("FIREBASE_API_KEY", "AIzaSyAsakbXzKEXkbE5BTCvNzVlLNe0v5ie0PI")
+    # Firebase API key from environment — NEVER hardcode secrets
+    api_key = os.getenv("FIREBASE_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="Firebase API key not configured")
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={api_key}"
@@ -68,7 +76,7 @@ def google_login(request: Request, db: Session = Depends(get_db)):
     
     has_pat = False
     if not user:
-        # Sign up the user automatically
+        # Sign up the user automatically (OAuth users don't have a password)
         new_user = models.User(
             email=email, 
             github_pat=None, 

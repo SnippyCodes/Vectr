@@ -29,6 +29,8 @@ export default function ContributePage() {
     // Search states
     const [langSearch, setLangSearch] = useState('');
     const [orgSearch, setOrgSearch] = useState('');
+    const [repoSort, setRepoSort] = useState('opportunity'); // 'opportunity' | 'stars'
+    const [issueFilter, setIssueFilter] = useState('all'); // 'all' | 'beginner'
 
     useEffect(() => { initFlow(); }, []);
 
@@ -166,6 +168,22 @@ export default function ContributePage() {
     }));
 
     const currentOrgName = selectedOrg?.name || 'Select an Organization';
+
+    const sortedRepos = [...repos].sort((a, b) => {
+        if (repoSort === 'opportunity') {
+            return (b.opportunity_score ?? 80) - (a.opportunity_score ?? 80);
+        }
+        return (b.stars ?? 0) - (a.stars ?? 0);
+    });
+
+    const filteredIssues = issues.filter(issue => {
+        if (issueFilter === 'beginner') {
+            const diff = issue.difficulty?.toLowerCase() || '';
+            const labels = (issue.labels || []).map(l => l.toLowerCase());
+            return diff === 'beginner' || labels.some(l => l.includes('good first') || l.includes('beginner') || l.includes('easy'));
+        }
+        return true;
+    });
 
     return (
         <>

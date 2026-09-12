@@ -1,0 +1,21 @@
+﻿# Replace api.vectropensource.me with your actual API subdomain
+api.vectropensource.me {
+    # Automatic HTTPS via Let's Encrypt - Caddy handles renewal
+    reverse_proxy backend:8000
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+
+    # Request logging
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}

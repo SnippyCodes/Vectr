@@ -41,3 +41,15 @@ Thumbs.db
 
 # Local agent skills (Garry Tan / gstack — do NOT push)
 .agents/
+
+# Production secrets (NEVER commit these)
+secrets/db_password.txt
+backend/.env.prod
+*.env.prod
+
+# SQLite dev database (production uses PostgreSQL)
+*.db
+backend/vectr.db
+
+# Docker volumes and compose overrides
+docker-compose.override.yml

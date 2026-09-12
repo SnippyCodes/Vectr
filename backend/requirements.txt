@@ -1,9 +1,11 @@
-fastapi
+﻿fastapi
 uvicorn
 requests
+httpx
 python-dotenv
 python-multipart
 sqlalchemy
 psycopg2-binary
 cryptography
 slowapi
+bcrypt

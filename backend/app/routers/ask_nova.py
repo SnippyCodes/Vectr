@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+﻿from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 import app.schemas as schemas
 import models
 from database import get_db
@@ -11,6 +11,7 @@ from typing import List
 import re
 import requests as req
 from app.utils.encryption import decrypt_pat
+from app.main import limiter
 import time
 
 nova_testing_steps_locks = {}
@@ -111,7 +112,7 @@ async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db
 
     # Construct System Prompt with Context
     if request.pr_context and request.active_issue_number:
-        # Draft PR page context — Nova acts as a PR reviewer/editor
+        # Draft PR page context â€” Nova acts as a PR reviewer/editor
         system_prompt = (
             f"You are Vectr Nova, an expert open source contribution assistant and PR reviewer.\n"
             f"The user is drafting a Pull Request for Issue #{request.active_issue_number} in the repository '{request.repo_name}'.\n\n"
@@ -588,7 +589,7 @@ async def fetch_commits(request: schemas.FetchCommitsRequest, db: Session = Depe
     cached_fork_status = progress.fork_status if progress else None
 
     if cached_fork_status == "available":
-        # Fork already confirmed in DB — skip GitHub API
+        # Fork already confirmed in DB â€” skip GitHub API
         fork_exists = True
     else:
         # Check GitHub API to see if fork exists
@@ -653,7 +654,7 @@ async def fetch_commits(request: schemas.FetchCommitsRequest, db: Session = Depe
     code, remote_branches, _ = await run_cmd_async("git branch -r", cwd=repo_dir)
     remote_branch_ref = f"origin/{branch_name}"
     if remote_branch_ref not in remote_branches:
-        # Branch doesn't exist on remote yet — user hasn't pushed
+        # Branch doesn't exist on remote yet â€” user hasn't pushed
         return schemas.FetchCommitsResponse(
             commits=[],
             fork_detected=True,

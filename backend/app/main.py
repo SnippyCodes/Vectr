@@ -27,16 +27,16 @@ app = FastAPI()
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# CORS: production domains only
+# Never use "*" with allow_credentials=True - it's a security hole
+# that lets any website make authenticated API calls using a visitor's cookies
 origins = [
     "https://vectropensource.me",
     "https://www.vectropensource.me",
     "https://vectoropensource.me",
     "https://www.vectoropensource.me",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://localhost:8000",
-    "*"
+    "http://localhost:5173",   # local dev only
+    "http://127.0.0.1:5173",  # local dev only
 ]
 
 app.add_middleware(

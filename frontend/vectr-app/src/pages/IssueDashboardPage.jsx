@@ -7,6 +7,7 @@ import { novaAPI, progressAPI } from '../services/api';
 import { buildDraftPRPath, ROUTES } from '../constants';
 import { useToast } from '../components/Toast';
 import NovaChat from '../components/NovaChat';
+import CodeStudio from '../components/CodeStudio';
 
 export default function IssueDashboardPage() {
     const { org, repo, issueNumber } = useParams();
@@ -31,6 +32,7 @@ export default function IssueDashboardPage() {
     const [chatMessages, setChatMessages] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isRefreshingTestingSteps, setIsRefreshingTestingSteps] = useState(false);
+    const [centerTab, setCenterTab] = useState('studio'); // 'studio' | 'plan'
 
     // Git commands are always generated locally — no Nova credits needed
     const gitCommands = (

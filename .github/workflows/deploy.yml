@@ -1,0 +1,38 @@
+﻿name: Deploy to AWS Lightsail
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger from GitHub UI
+
+jobs:
+  deploy:
+    name: SSH Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Deploy backend via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ubuntu
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/vectr
+
+            echo "--- Pulling latest code ---"
+            git pull origin main
+
+            echo "--- Rebuilding and restarting containers ---"
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+
+            echo "--- Cleaning up old images ---"
+            docker system prune -f
+
+            echo "--- Health check ---"
+            sleep 5
+            curl -f http://localhost:8000/health || (echo "Health check FAILED" && exit 1)
+
+            echo "--- Deploy complete ---"

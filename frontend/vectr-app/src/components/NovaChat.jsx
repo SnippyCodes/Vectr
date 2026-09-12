@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { novaAPI } from '../services/api';
 
 /**
  * Ask Nova AI chat panel. Integrates with Amazon Bedrock via the backend.
- * Can be used standalone on any page—just pass repo context and issues.
+ * Can be used standalone on any pageâ€”just pass repo context and issues.
  */
 export default function NovaChat({ repoName = '', issuesContext = [], activeIssueNumber = null, externalMessages, setExternalMessages, userEmail = null, onApproachUpdate = null, onPRUpdate = null, prContext = null }) {
     // If externalMessages is provided, act as a controlled component, else use internal state.
@@ -26,7 +26,7 @@ export default function NovaChat({ repoName = '', issuesContext = [], activeIssu
     if (!isNovaEnabled) {
         return (
             <div className="nova-card flex flex-col h-full overflow-hidden items-center justify-center p-6 text-center">
-                <div className="text-4xl mb-4">🤖</div>
+                <div className="text-4xl mb-4">ðŸ¤–</div>
                 <h3 className="text-lg font-semibold text-text-primary mb-2">Amazon Nova is Disabled</h3>
                 <p className="text-text-muted text-sm max-w-xs">
                     AI functionality is currently turned off in your environment variables. 
@@ -54,13 +54,13 @@ export default function NovaChat({ repoName = '', issuesContext = [], activeIssu
             // If Nova updated the PR, show a clean confirmation in chat instead of the full PR content
             if (res.updated_pr && onPRUpdate) {
                 onPRUpdate(res.updated_pr);
-                // Nova often repeats the PR as plain text — if the leftover reply is long, it's likely
+                // Nova often repeats the PR as plain text â€” if the leftover reply is long, it's likely
                 // just the PR content repeated. Replace with a brief confirmation.
                 const trimmed = chatReply.trim();
                 if (!trimmed || trimmed.length > 200) {
-                    chatReply = '✅ I\'ve updated your Pull Request draft. Check the PR block on the left!';
+                    chatReply = 'âœ… I\'ve updated your Pull Request draft. Check the PR block on the left!';
                 }
-                // else: short reply is likely a brief explanation — keep it
+                // else: short reply is likely a brief explanation â€” keep it
             }
             
             setMessages(prev => [...prev, { role: 'assistant', content: chatReply }]);
@@ -109,7 +109,7 @@ export default function NovaChat({ repoName = '', issuesContext = [], activeIssu
             <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3 min-h-[200px]">
                 {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full text-center space-y-3 py-8">
-                        <div className="text-3xl">🤖</div>
+                        <div className="text-3xl">ðŸ¤–</div>
                         <p className="text-text-muted text-sm">Ask Nova about issues, code, or contribution strategies</p>
                         <div className="flex flex-wrap gap-2 justify-center">
                             {(prContext ? [
@@ -158,6 +158,17 @@ export default function NovaChat({ repoName = '', issuesContext = [], activeIssu
                             <span className="w-2 h-2 bg-accent-cyan rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                         </div>
                         Nova is thinking...
+                    </div>
+                )}
+                {loading && (
+                    <div className="flex items-start gap-3 py-3">
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">N</div>
+                        <div className="flex items-center gap-1 px-4 py-3 rounded-2xl bg-white/5 border border-white/10">
+                            <span className="w-2 h-2 rounded-full bg-pink-400 animate-bounce" style={{animationDelay: '0ms'}}></span>
+                            <span className="w-2 h-2 rounded-full bg-pink-400 animate-bounce" style={{animationDelay: '150ms'}}></span>
+                            <span className="w-2 h-2 rounded-full bg-pink-400 animate-bounce" style={{animationDelay: '300ms'}}></span>
+                            <span className="ml-2 text-xs text-text-muted">Nova is thinking...</span>
+                        </div>
                     </div>
                 )}
                 <div ref={chatEndRef} />

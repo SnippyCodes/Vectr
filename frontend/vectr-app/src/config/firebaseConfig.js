@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, GithubAuthProvider } from 'firebase/auth';
 
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAsakbXzKEXkbE5BTCvNzVlLNe0v5ie0PI",
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "vectropensource.firebaseapp.com",
     projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "vectropensource",
     appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:4433724287:web:9bdcf19c7a1f479b9d504a"

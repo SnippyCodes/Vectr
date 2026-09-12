@@ -1,0 +1,71 @@
+﻿version: '3.8'
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    networks:
+      - vectr_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env.prod
+    environment:
+      - ENDPOINT=postgres
+      - DB_USER=vectr
+      - DB_NAME=vectr_production
+    secrets:
+      - db_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vectr_net
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vectr
+      POSTGRES_DB: vectr_production
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vectr -d vectr_production"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vectr_net
+
+volumes:
+  postgres_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+
+networks:
+  vectr_net:
+    driver: bridge

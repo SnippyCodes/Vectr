@@ -221,4 +221,33 @@ class SubmitPRRequest(BaseModel):
     repo_name: str
     issue_number: int
     title: str
-    body: str
+    body: str
+# Tier 6 - In-Browser Code Studio Schemas
+class FileTreeItem(BaseModel):
+    path: str
+    type: str # 'blob' or 'tree'
+    size: Optional[int] = None
+
+class FileTreeResponse(BaseModel):
+    repo_name: str
+    files: List[FileTreeItem]
+
+class FileContentResponse(BaseModel):
+    path: str
+    content: str
+    sha: str
+    size: int
+
+class CommitFileRequest(BaseModel):
+    user_email: str
+    file_path: str
+    content: str
+    commit_message: str
+    branch_name: str
+
+class CommitFileResponse(BaseModel):
+    success: bool
+    commit_url: Optional[str] = None
+    branch: str
+    file_path: str
+    message: str

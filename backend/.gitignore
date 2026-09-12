@@ -50,3 +50,6 @@ test_*.py
 *integration_test*
 node_modules/
 /workspaces
+
+*.db
+vectr.db
