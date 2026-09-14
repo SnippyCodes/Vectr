@@ -1,4 +1,4 @@
-﻿import base64
+import base64
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
@@ -8,7 +8,7 @@ import models as models
 import app.schemas as schemas
 from database import get_db
 from app.utils.encryption import decrypt_pat
-from app.utils.limiter import limiter
+from app.main import limiter
 
 routes = APIRouter(prefix="/repos", tags=["Repository & Issues"])
 

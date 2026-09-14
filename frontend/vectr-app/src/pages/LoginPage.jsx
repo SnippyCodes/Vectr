@@ -4,9 +4,10 @@ import { signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase
 import { auth, googleProvider, githubProvider } from '../config/firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
-import { ROUTES, APP, EXPERIENCE_LEVELS } from '../constants';
+import { ROUTES, EXPERIENCE_LEVELS } from '../constants';
 import { useToast } from '../components/Toast';
 import VectrLogo from '../components/VectrLogo';
+import VectrBrand from '../components/VectrBrand';
 import FeaturesSection from '../components/FeaturesSection';
 
 export default function LoginPage() {
@@ -169,9 +170,8 @@ export default function LoginPage() {
             <div className="login-left">
                 <div className="login-left-inner">
                     {/* Logo + Name */}
-                    <div className="login-logo">
-                        <VectrLogo size={28} />
-                        <span className="login-logo-name">{APP.NAME.toLowerCase()}</span>
+                    <div className="mb-8">
+                        <VectrBrand logoSize={54} showSubtitle={true} />
                     </div>
 
                     {/* Heading */}

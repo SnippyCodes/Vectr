@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-primary: #0a0e1a;
-  --color-bg-secondary: #0f1729;
-  --color-bg-card: #131d2f;
-  --color-bg-panel: #1a2744;
-  --color-bg-input: #0d1117;
-  --color-border-default: #1e3a5f;
-  --color-border-accent: #2dd4bf;
+  --color-bg-primary: #0c0c0c;
+  --color-bg-secondary: #121214;
+  --color-bg-card: #161618;
+  --color-bg-panel: #1a1a1e;
+  --color-bg-input: #141416;
+  --color-border-default: #26262a;
+  --color-border-accent: #22d3ee;
   --color-border-nova: #ec4899;
   --color-accent-green: #4ade80;
   --color-accent-cyan: #22d3ee;
-  --color-accent-blue: #3b82f6;
-  --color-text-primary: #e2e8f0;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
+  --color-accent-blue: #38bdf8;
+  --color-text-primary: #f4f4f5;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #71717a;
   --color-status-accepted: #4ade80;
   --color-status-waiting: #facc15;
   --color-status-rejected: #f87171;
@@ -51,7 +51,7 @@
     border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-accent-blue);
+    background: var(--color-accent-cyan);
   }
 }
 
@@ -63,14 +63,14 @@
     scrollbar-color: var(--color-border-default) transparent;
   }
   .block-scroll:hover {
-    scrollbar-color: var(--color-accent-blue) transparent;
+    scrollbar-color: var(--color-accent-cyan) transparent;
   }
 
   .glass-card {
-    background: linear-gradient(135deg, rgba(15, 23, 41, 0.9), rgba(19, 29, 47, 0.8));
-    border: 1px solid var(--color-border-default);
+    background: rgba(20, 20, 22, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(16px);
   }
 
   .glass-card-accent {
@@ -269,7 +269,7 @@
   }
 
   .skeleton-shimmer {
-    background: linear-gradient(90deg, rgba(26,39,68,0.4) 25%, rgba(30,58,95,0.6) 50%, rgba(26,39,68,0.4) 75%);
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
     border-radius: 8px;
@@ -1789,54 +1789,93 @@
   }
 
   /* ═══════════════════════════════════════════════════════════════════
-     MODAL REDESIGN — Premium dark aesthetic
+  /* ═══════════════════════════════════════════════════════════════════
+     MODAL REDESIGN — Obsidian Stealth Cockpit
      ═══════════════════════════════════════════════════════════════════ */
-  /* Language / Org selection pill buttons */
+  /* Language card button in modal grid */
+  .modal-lang-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    font-family: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #141416;
+    color: #a1a1aa;
+    cursor: pointer;
+    transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+    text-align: left;
+    position: relative;
+    user-select: none;
+  }
+
+  .modal-lang-card:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #f4f4f5;
+    background: #1a1a1e;
+    transform: translateY(-1px);
+  }
+
+  .modal-lang-card.modal-lang-selected {
+    background: rgba(34, 211, 238, 0.06);
+    border-color: #22d3ee;
+    color: #22d3ee;
+    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25);
+  }
+
+  /* Language / Org selection pill buttons fallback */
   .modal-pill-btn {
-    padding: 8px 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
     border-radius: 8px;
     font-size: 0.82rem;
     font-weight: 500;
     font-family: inherit;
-    border: 1px solid #222;
-    background: #0d0d0d;
-    color: #888;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #141416;
+    color: #a1a1aa;
     cursor: pointer;
     transition: all 0.15s ease;
   }
 
   .modal-pill-btn:hover {
-    border-color: #333;
-    color: #ccc;
-    background: #151515;
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #f4f4f5;
+    background: #1a1a1e;
   }
 
   .modal-pill-btn.modal-pill-selected {
-    background: rgba(74, 222, 128, 0.08);
-    border-color: #4ade80;
-    color: #4ade80;
+    background: rgba(34, 211, 238, 0.08);
+    border-color: #22d3ee;
+    color: #22d3ee;
   }
 
   /* Modal search input */
   .modal-search-input {
     width: 100%;
-    padding: 12px 16px;
+    padding: 11px 16px;
     border-radius: 10px;
-    border: 1px solid #222;
-    background: #0d0d0d;
-    color: #e0e0e0;
-    font-size: 0.88rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #121214;
+    color: #f4f4f5;
+    font-size: 0.875rem;
     font-family: inherit;
     outline: none;
-    transition: border-color 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
 
   .modal-search-input:focus {
-    border-color: #4ade80;
+    border-color: #22d3ee;
+    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.3);
   }
 
   .modal-search-input::placeholder {
-    color: #555;
+    color: #71717a;
   }
 
   /* Org card buttons */
@@ -1845,38 +1884,64 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 16px;
+    padding: 12px 16px;
     border-radius: 10px;
-    border: 1px solid #1a1a1a;
-    background: #0d0d0d;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #141416;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
     font-family: inherit;
     text-align: left;
   }
 
   .modal-org-card:hover {
-    border-color: #2a2a2a;
-    background: #141414;
+    border-color: rgba(34, 211, 238, 0.4);
+    background: #1a1a1e;
+    transform: translateY(-1px);
   }
 
   .modal-org-card.modal-org-selected {
-    border-color: #4ade80;
-    background: rgba(74, 222, 128, 0.04);
+    border-color: #22d3ee;
+    background: rgba(34, 211, 238, 0.06);
+    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25);
   }
 
   /* Modal action buttons */
   .modal-btn-cancel {
-    padding: 10px 20px;
-    border-radius: 10px;
-    border: 1px solid #222;
-    background: #0d0d0d;
-    color: #999;
+    padding: 9px 18px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #141416;
+    color: #a1a1aa;
     font-size: 0.82rem;
     font-weight: 500;
     font-family: inherit;
     cursor: pointer;
     transition: all 0.15s ease;
+  }
+
+  .modal-btn-cancel:hover {
+    background: #1a1a1e;
+    color: #f4f4f5;
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+
+  .modal-btn-next {
+    padding: 9px 20px;
+    border-radius: 8px;
+    border: 1px solid #22d3ee;
+    background: #22d3ee;
+    color: #0c0c0c;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .modal-btn-next:hover {
+    background: #06b6d4;
+    border-color: #06b6d4;
   }
 
   .modal-btn-cancel:hover {

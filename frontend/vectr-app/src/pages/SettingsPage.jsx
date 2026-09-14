@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
 import { useToast } from '../components/Toast';
 import { ROUTES, EXPERIENCE_LEVELS } from '../constants';
+import VectrBrand from '../components/VectrBrand';
 
 const PAT_SCOPES = [
     { name: 'repo', desc: 'Full control of private & public repositories' },
@@ -83,8 +84,12 @@ export default function SettingsPage() {
     return (
         <div className="p-6 md:p-8 max-w-5xl mx-auto fade-in space-y-8">
             <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">Settings</h1>
-                <p className="text-xs text-text-muted mt-1">Manage your account preferences, experience level, and GitHub integrations.</p>
+                <div className="flex items-center gap-3 mb-1.5 flex-wrap">
+                    <VectrBrand logoSize={38} showTag={false} />
+                    <span className="text-zinc-700 hidden sm:inline">|</span>
+                    <h1 className="text-xl font-bold text-white tracking-tight">Settings</h1>
+                </div>
+                <p className="text-xs text-text-muted">Manage your account preferences, experience level, and GitHub integrations.</p>
             </div>
 
             {/* Account Details Card */}

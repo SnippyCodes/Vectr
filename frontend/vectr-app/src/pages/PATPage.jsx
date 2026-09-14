@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { patAPI } from '../services/api';
-import { ROUTES, APP } from '../constants';
+import { ROUTES } from '../constants';
 import { useToast } from '../components/Toast';
 import VectrLogo from '../components/VectrLogo';
+import VectrBrand from '../components/VectrBrand';
 
 const PAT_SCOPES = [
     { name: 'repo', desc: 'Full control of private & public repositories' },
@@ -106,18 +107,14 @@ export default function PATPage() {
         <div className="min-h-screen flex flex-col bg-[#051424] text-text-primary font-sans relative overflow-x-hidden">
             {/* ── Background Mesh Gradients ── */}
             <div className="fixed inset-0 pointer-events-none z-0">
-                <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-gradient-to-r from-cyan-500/10 via-blue-600/10 to-purple-600/10 blur-[120px] rounded-full" />
-                <div className="absolute top-1/3 -left-40 w-[500px] h-[500px] bg-cyan-500/5 blur-[140px] rounded-full" />
-                <div className="absolute bottom-10 -right-40 w-[500px] h-[500px] bg-blue-500/5 blur-[140px] rounded-full" />
             </div>
 
             {/* ── Top AppBar Header ── */}
-            <header className="w-full border-b border-white/10 bg-[#051424]/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <VectrLogo size={32} />
-                    <span className="text-xl font-bold tracking-tight text-white font-mono">{APP.NAME.toLowerCase()}</span>
-                    <span className="ml-3 px-3 py-1 text-xs font-medium rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <header className="w-full border-b border-white/[0.08] bg-[#0c0c0c]/90 backdrop-blur-md sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <VectrBrand logoSize={44} showTag={false} />
+                    <span className="ml-2 px-3 py-1 text-xs font-mono font-medium rounded-full bg-[#22d3ee]/10 text-[#22d3ee] border border-[#22d3ee]/25 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#22d3ee] animate-pulse" />
                         Step 1 of 2: Connect GitHub PAT
                     </span>
                 </div>

@@ -66,13 +66,5 @@ export const FLOW_STEPS = {
 // ─── Local Storage Keys ─────────────────────────────────────────────
 export const STORAGE_KEYS = {
     USER: 'vectr_user',
-    THEME: 'vectr_theme',
 };
 
-// ─── App Metadata ───────────────────────────────────────────────────
-export const APP = {
-    NAME: 'Vectr',
-    TAGLINE: 'Open Source Contribution Helper',
-    VERSION: '1.0.0',
-    POWERED_BY: 'Powered by Amazon Nova',
-};

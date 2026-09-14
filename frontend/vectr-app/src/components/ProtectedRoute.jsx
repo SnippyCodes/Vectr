@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../constants';
-import VectrLogo from './VectrLogo';
+import VectrBrand from './VectrBrand';
 
 /**
  * Route guard. Redirects unauthenticated users to login.
@@ -12,10 +12,10 @@ export default function ProtectedRoute({ children }) {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-bg-primary">
-                <div className="text-center">
-                    <VectrLogo size={48} />
-                    <p className="text-text-muted mt-4 animate-pulse text-sm">Loading...</p>
+            <div className="min-h-screen flex items-center justify-center bg-[#0c0c0c]">
+                <div className="flex flex-col items-center">
+                    <VectrBrand logoSize={54} showSubtitle={true} />
+                    <p className="text-zinc-500 mt-5 animate-pulse text-xs font-mono">Initializing Cockpit...</p>
                 </div>
             </div>
         );
