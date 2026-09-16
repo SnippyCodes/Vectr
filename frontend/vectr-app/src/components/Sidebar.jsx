@@ -27,12 +27,12 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     const navLinkClass = (isActive) =>
         `flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-xs transition-all duration-150 ${
             isActive 
-                ? 'bg-white/[0.08] text-white border border-white/15 font-semibold text-accent-cyan' 
+                ? 'bg-amber-500/[0.08] text-white border border-amber-500/25 font-semibold' 
                 : 'text-text-secondary hover:text-white hover:bg-white/[0.04]'
         }`;
 
     return (
-        <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} bg-[#0c0c0c] border-r border-white/[0.08] p-3 flex flex-col justify-between select-none`}>
+        <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} bg-[#0c0d12] border-r border-white/[0.08] p-3 flex flex-col justify-between select-none`}>
             <div className="space-y-3">
                 {/* ─── Header: Brand Logo & Collapse ─── */}
                 <div className="flex items-center justify-between px-2 pt-1 pb-2">
@@ -54,19 +54,19 @@ export default function Sidebar({ collapsed, setCollapsed }) {
                     </button>
                 </div>
 
-                {/* ─── User Profile Welcome Card (Solid, Non-gradientish) ─── */}
+                {/* ─── User Profile Welcome Card ─── */}
                 {!collapsed && (
-                    <div className="bg-[#141416] border border-white/[0.08] rounded-xl p-3.5 space-y-2">
+                    <div className="bg-[#12131b] border border-white/[0.07] rounded-xl p-3.5 space-y-2">
                         <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-[#1a1a1e] border border-cyan-400/30 flex items-center justify-center text-xs font-bold text-accent-cyan font-mono shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-xs font-semibold text-amber-300 shrink-0">
                                 {initials}
                             </div>
                             <div className="min-w-0">
                                 <div className="text-xs font-semibold text-white truncate">
                                     {displayName}
                                 </div>
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-[10px] font-mono">
-                                    <span className="w-1 h-1 rounded-full bg-cyan-400" />
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-medium">
+                                    <span className="w-1 h-1 rounded-full bg-amber-400" />
                                     {experienceLevel}
                                 </span>
                             </div>
@@ -75,7 +75,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
                 )}
 
                 {/* ─── Navigation Links (Essential Routes Only) ─── */}
-                <div className={`${!collapsed ? 'bg-[#141416] border border-white/[0.08] rounded-xl p-1.5' : ''} space-y-1`}>
+                <div className={`${!collapsed ? 'bg-[#12131b] border border-white/[0.07] rounded-xl p-1.5' : ''} space-y-1`}>
                     <NavLink to={ROUTES.DASHBOARD} className={({ isActive }) => navLinkClass(isActive)}>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -93,7 +93,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
                         {!collapsed && (
                             <div className="flex items-center justify-between w-full">
                                 <span>Find Issues</span>
-                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 font-medium">
                                     Nova
                                 </span>
                             </div>

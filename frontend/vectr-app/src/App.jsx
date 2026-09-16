@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LLMProvider } from './context/LLMProviderContext';
 import { ToastProvider } from './components/Toast';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -45,9 +46,11 @@ export default function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
-          <ToastProvider>
-            <AppRoutes />
-          </ToastProvider>
+          <LLMProvider>
+            <ToastProvider>
+              <AppRoutes />
+            </ToastProvider>
+          </LLMProvider>
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

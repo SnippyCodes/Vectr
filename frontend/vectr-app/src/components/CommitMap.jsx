@@ -33,11 +33,11 @@ export default function CommitMap({ data = [] }) {
     }, [data]);
 
     const getColor = (count) => {
-        if (count === 0) return 'rgba(255, 255, 255, 0.04)';
-        if (count <= 2) return 'rgba(34, 211, 238, 0.35)'; // Cyan 35%
-        if (count <= 5) return 'rgba(34, 211, 238, 0.6)';  // Cyan 60%
-        if (count <= 10) return 'rgba(34, 211, 238, 0.85)'; // Cyan 85%
-        return '#22d3ee'; // Bright electric cyan
+        if (count === 0) return '#151620';
+        if (count <= 2) return '#222534';
+        if (count <= 5) return '#34384d';
+        if (count <= 10) return '#4b506d';
+        return '#f59e0b';
     };
 
     return (
@@ -48,10 +48,10 @@ export default function CommitMap({ data = [] }) {
                         {week.map((day, di) => (
                             <div
                                 key={di}
-                                className="rounded-[2.5px] transition-all hover:scale-125 hover:z-10 cursor-pointer border border-white/[0.04]"
+                                className="rounded-[3px] transition-all duration-150 hover:scale-125 hover:z-10 cursor-pointer border border-white/[0.03]"
                                 style={{
-                                    width: 11,
-                                    height: 11,
+                                    width: 11.5,
+                                    height: 11.5,
                                     backgroundColor: getColor(day.count),
                                 }}
                                 title={day.date ? `${day.date}: ${day.count} contribution${day.count === 1 ? '' : 's'}` : 'No contributions'}
@@ -60,15 +60,15 @@ export default function CommitMap({ data = [] }) {
                     </div>
                 ))}
             </div>
-            <div className="flex items-center justify-between pt-3 text-[10px] font-mono text-text-muted">
+            <div className="flex items-center justify-between pt-3 text-[11px] font-sans text-[#7d8091]">
                 <span>52 weeks contribution history</span>
                 <div className="flex items-center gap-1.5">
                     <span>Less</span>
-                    <div className="w-2.5 h-2.5 rounded-[2px] bg-white/[0.04] border border-white/[0.05]" />
-                    <div className="w-2.5 h-2.5 rounded-[2px] bg-cyan-400/30" />
-                    <div className="w-2.5 h-2.5 rounded-[2px] bg-cyan-400/60" />
-                    <div className="w-2.5 h-2.5 rounded-[2px] bg-cyan-400/90" />
-                    <div className="w-2.5 h-2.5 rounded-[2px] bg-[#22d3ee]" />
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-[#151620] border border-white/[0.08]" />
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-[#222534]" />
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-[#34384d]" />
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-[#4b506d]" />
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-[#f59e0b]" />
                     <span>More</span>
                 </div>
             </div>
