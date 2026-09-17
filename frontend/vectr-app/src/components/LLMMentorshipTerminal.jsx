@@ -92,7 +92,7 @@ Step 3: Guidance ready: Ensure docstring formatting adheres to Google Python Sty
             {/* Terminal Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-white">
                         AI Contributor Mentorship Terminal
                     </h3>
@@ -120,7 +120,7 @@ Step 3: Guidance ready: Ensure docstring formatting adheres to Google Python Sty
                         key={action}
                         onClick={() => handlePrompt(action)}
                         disabled={isStreaming}
-                        className="px-3 py-1 text-xs font-sans rounded-full bg-white/[0.04] hover:bg-amber-500/10 text-[#9496a1] hover:text-amber-300 border border-white/[0.06] hover:border-amber-500/30 transition-all duration-150 cursor-pointer"
+                        className="px-3 py-1 text-xs font-sans rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-[#9496a1] hover:text-white border border-white/[0.06] hover:border-white/[0.14] transition-all duration-150 cursor-pointer"
                     >
                         {action}
                     </button>
@@ -128,7 +128,7 @@ Step 3: Guidance ready: Ensure docstring formatting adheres to Google Python Sty
             </div>
 
             {/* Terminal Output Well */}
-            <div className="bg-[#0a0b10] border border-white/[0.06] rounded-xl p-4 font-mono text-xs text-[#e4e4e7] overflow-x-auto min-h-[130px] max-h-[220px] block-scroll leading-relaxed whitespace-pre-wrap shadow-inner">
+            <div className="bg-[#0e0e11] border border-white/[0.06] rounded-xl p-4 font-mono text-xs text-[#e4e4e7] overflow-x-auto min-h-[130px] max-h-[220px] block-scroll leading-relaxed whitespace-pre-wrap">
                 {streamOutput || (
                     <span className="text-[#6b6d7a] italic">
                         Ready. Click an action chip or type a prompt below to query {activeProvider.name}...

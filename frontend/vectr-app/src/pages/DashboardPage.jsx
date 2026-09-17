@@ -179,7 +179,7 @@ export default function DashboardPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-[#0c0d12] text-[#fafafa] p-4 sm:p-6 md:p-8 space-y-5 fade-in font-sans select-none">
+        <div className="min-h-screen bg-[#0c0c0c] text-[#fafafa] p-4 sm:p-6 md:p-8 space-y-5 fade-in font-sans select-none">
             {/* ── Top Header: Command Cockpit Strip ── */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/[0.06] pb-4">
                 <div className="space-y-1.5">
@@ -189,11 +189,12 @@ export default function DashboardPage() {
                         <h1 className="text-lg font-semibold tracking-tight text-white uppercase">
                             Contributor Cockpit
                         </h1>
-                        <span className="px-3 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/25 text-xs font-medium">
-                            🌱 {experienceLevel}
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.05] text-[#e0e0e0] border border-white/[0.08] text-xs font-medium">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            {experienceLevel}
                         </span>
-                        <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />
                             GitHub Sync Active
                         </span>
                     </div>
@@ -245,7 +246,12 @@ export default function DashboardPage() {
                 </div>
                 <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] transition-all flex items-center justify-between">
                     <span className="text-xs text-[#888891] font-medium">Sprint Streak</span>
-                    <span className="text-xs font-medium text-amber-400">🔥 6 Days</span>
+                    <span className="text-xs font-medium text-amber-400 flex items-center gap-1.5">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+                        </svg>
+                        <span>6 Days</span>
+                    </span>
                 </div>
             </div>
 
@@ -322,7 +328,7 @@ export default function DashboardPage() {
                                 <div className="py-1 px-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-medium text-emerald-400">
                                     ✓ 2. Roadmap
                                 </div>
-                                <div className="py-1 px-1.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-[10px] font-semibold text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.12)]">
+                                <div className="py-1 px-1.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-[10px] font-semibold text-amber-300">
                                     ● 3. Code
                                 </div>
                                 <div className="py-1 px-1.5 rounded-full bg-white/[0.03] border border-white/[0.05] text-[10px] text-[#6b6d7a]">
@@ -389,7 +395,6 @@ export default function DashboardPage() {
                                     strokeDasharray={2 * Math.PI * 32}
                                     strokeDashoffset={2 * Math.PI * 32 * (1 - 0.94)}
                                     strokeLinecap="round"
-                                    style={{ filter: "drop-shadow(0 0 8px rgba(245, 158, 11, 0.4))" }}
                                     fill="transparent"
                                 />
                             </svg>
@@ -538,7 +543,12 @@ export default function DashboardPage() {
                                 <div className="space-y-0.5 min-w-0">
                                     <div className="flex items-center gap-1.5">
                                         <span className="text-xs font-medium text-white truncate">{repo.name}</span>
-                                        <span className="text-[10px] text-[#888891]">⭐ {repo.stars}</span>
+                                        <span className="text-[10px] text-[#888891] flex items-center gap-1">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="#f59e0b" className="shrink-0">
+                                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                            </svg>
+                                            {repo.stars}
+                                        </span>
                                     </div>
                                     <p className="text-[11px] text-[#888891] truncate">{repo.issues}</p>
                                 </div>

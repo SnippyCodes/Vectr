@@ -340,10 +340,10 @@ export default function LoginPage() {
                                 showToast('Loaded demo contributor cockpit session', 'success');
                                 navigate(ROUTES.DASHBOARD);
                             }}
-                            className="w-full py-2.5 px-4 rounded-full text-xs font-mono font-medium tracking-wide text-amber-300/90 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 transition-all flex items-center justify-center gap-2 group cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+                            className="w-full py-2.5 px-4 rounded-full text-xs font-mono font-medium tracking-wide text-[#d4d4d8] hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/[0.16] transition-all flex items-center justify-center gap-2 group cursor-pointer"
                         >
-                            <span>⚡ Quick Demo Cockpit Access</span>
-                            <span className="text-amber-400/60 group-hover:translate-x-0.5 transition-transform">→</span>
+                            <span>Quick Demo Cockpit Access</span>
+                            <span className="text-[#888891] group-hover:text-white group-hover:translate-x-0.5 transition-all">→</span>
                         </button>
                     </div>
                 </div>

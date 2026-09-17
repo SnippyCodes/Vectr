@@ -32,7 +32,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
         }`;
 
     return (
-        <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} bg-[#0c0d12] border-r border-white/[0.08] p-3 flex flex-col justify-between select-none`}>
+        <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} bg-[#0c0c0c] border-r border-[#1e1e1e] p-3 flex flex-col justify-between select-none`}>
             <div className="space-y-3">
                 {/* ─── Header: Brand Logo & Collapse ─── */}
                 <div className="flex items-center justify-between px-2 pt-1 pb-2">
@@ -56,7 +56,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
 
                 {/* ─── User Profile Welcome Card ─── */}
                 {!collapsed && (
-                    <div className="bg-[#12131b] border border-white/[0.07] rounded-xl p-3.5 space-y-2">
+                    <div className="bg-[#131316] border border-[#222226] rounded-xl p-3.5 space-y-2">
                         <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-xs font-semibold text-amber-300 shrink-0">
                                 {initials}
@@ -65,7 +65,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
                                 <div className="text-xs font-semibold text-white truncate">
                                     {displayName}
                                 </div>
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-medium">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.05] text-[#d4d4d8] border border-white/[0.08] text-[10px] font-medium">
                                     <span className="w-1 h-1 rounded-full bg-amber-400" />
                                     {experienceLevel}
                                 </span>
@@ -75,7 +75,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
                 )}
 
                 {/* ─── Navigation Links (Essential Routes Only) ─── */}
-                <div className={`${!collapsed ? 'bg-[#12131b] border border-white/[0.07] rounded-xl p-1.5' : ''} space-y-1`}>
+                <div className={`${!collapsed ? 'bg-[#131316] border border-[#222226] rounded-xl p-1.5' : ''} space-y-1`}>
                     <NavLink to={ROUTES.DASHBOARD} className={({ isActive }) => navLinkClass(isActive)}>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <rect x="3" y="3" width="7" height="7" rx="1" />

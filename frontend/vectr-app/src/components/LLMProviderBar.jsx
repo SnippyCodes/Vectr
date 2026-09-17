@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLLM } from '../context/LLMProviderContext';
 import { ROUTES } from '../constants';
+import ProviderIcon from './ProviderIcon';
 
 export default function LLMProviderBar() {
     const { providers, activeProviderId, setActiveProviderId, testProvider, testingId, isConfigured } = useLLM();
@@ -22,7 +23,7 @@ export default function LLMProviderBar() {
             {/* Header / Sub-strip */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                     <span className="text-xs font-semibold uppercase tracking-wider text-white">
                         Multi-LLM Inference Gateway
                     </span>
@@ -33,14 +34,18 @@ export default function LLMProviderBar() {
 
                 <div className="flex items-center gap-3">
                     <span className="text-xs text-[#888891]">Active:</span>
-                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/25">
+                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-white/[0.06] text-[#e0e0e0] border border-white/[0.1]">
                         {providers[activeProviderId]?.name} ({providers[activeProviderId]?.currentModel})
                     </span>
                     <button
                         onClick={() => navigate(ROUTES.SETTINGS)}
-                        className="cockpit-btn-secondary px-3 py-1 text-xs font-medium cursor-pointer"
+                        className="cockpit-btn-secondary px-3 py-1 text-xs font-medium cursor-pointer flex items-center gap-1.5"
                     >
-                        ⚙ Manage Keys
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                            <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        <span>Manage Keys</span>
                     </button>
                 </div>
             </div>
@@ -56,23 +61,24 @@ export default function LLMProviderBar() {
                         <div
                             key={p.id}
                             onClick={() => setActiveProviderId(p.id)}
-                            className={`p-3 rounded-xl cursor-pointer transition-all duration-200 select-none flex flex-col justify-between min-h-[102px] ${
+                            className={`p-3 rounded-xl cursor-pointer transition-all duration-150 select-none flex flex-col justify-between min-h-[102px] ${
                                 isActive 
-                                    ? 'bg-amber-500/[0.08] border border-amber-500/40 shadow-[0_4px_20px_rgba(245,158,11,0.08)]' 
-                                    : 'bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.14] hover:bg-white/[0.04]'
+                                    ? 'bg-white/[0.05] border border-white/[0.2]' 
+                                    : 'bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] hover:bg-white/[0.04]'
                             }`}
                         >
                             <div>
                                 <div className="flex items-center justify-between mb-1.5">
                                     <div className="flex items-center gap-1.5">
-                                        <span className="text-base">{p.icon}</span>
-                                        <span className={`text-xs font-semibold truncate ${isActive ? 'text-amber-300 font-bold' : 'text-[#f5f5f5]'}`}>
+                                        <span className={`${isActive ? 'text-amber-400' : 'text-[#888891]'}`}>
+                                            <ProviderIcon providerId={p.id} className="w-3.5 h-3.5" />
+                                        </span>
+                                        <span className={`text-xs font-semibold truncate ${isActive ? 'text-white font-bold' : 'text-[#e0e0e0]'}`}>
                                             {p.name.split(' ')[0]}
                                         </span>
                                     </div>
-                                    <span className="flex h-2 w-2 relative">
-                                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${hasKey || p.status === 'online' ? 'bg-[#22c55e]' : 'bg-amber-500'}`} />
-                                        <span className={`relative inline-flex rounded-full h-2 w-2 ${hasKey || p.status === 'online' ? 'bg-[#22c55e]' : 'bg-amber-500'}`} />
+                                    <span className="flex h-1.5 w-1.5 relative">
+                                        <span className={`inline-flex rounded-full h-1.5 w-1.5 ${hasKey || p.status === 'online' ? 'bg-[#22c55e]' : 'bg-zinc-600'}`} />
                                     </span>
                                 </div>
 
@@ -81,7 +87,7 @@ export default function LLMProviderBar() {
                                         {p.currentModel.split('/')[1] || p.currentModel}
                                     </p>
                                     <div className="flex items-center gap-1.5 text-[10px] font-mono">
-                                        <span className="text-[#22c55e] font-semibold">{p.latency}</span>
+                                        <span className="text-[#22c55e] font-medium">{p.latency}</span>
                                         <span className="text-white/20">|</span>
                                         <span className="text-[#888891]">{p.throughput}</span>
                                     </div>
@@ -91,7 +97,7 @@ export default function LLMProviderBar() {
                             <div className="mt-2 pt-2 border-t border-white/[0.06] flex items-center justify-between">
                                 <span className={`text-[10px] font-medium uppercase px-2 py-0.5 rounded-full ${
                                     isActive 
-                                        ? 'bg-amber-500 text-black font-semibold' 
+                                        ? 'bg-white text-black font-semibold' 
                                         : 'bg-white/[0.05] text-[#888891]'
                                 }`}>
                                     {isActive ? 'ACTIVE' : 'SELECT'}
