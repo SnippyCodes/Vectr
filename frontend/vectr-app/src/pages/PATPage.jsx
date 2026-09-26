@@ -77,21 +77,26 @@ export default function PATPage() {
             setError('Invalid PAT format. GitHub PATs start with ghp_ or github_pat_');
             return;
         }
+        const emailToUse = user?.email?.trim().toLowerCase();
+        if (!emailToUse) {
+            setError('No active user session found. Please return to the login page and sign in.');
+            return;
+        }
+
         setError('');
         setLoading(true);
         try {
-            const emailToUse = user?.email || 'user@vectr.ai';
             const data = await patAPI.validate(emailToUse, trimmed);
             updateUser({ hasPat: true, githubUsername: data.github_username });
             showToast(`PAT validated! Connected as ${data.github_username}`, 'success');
             setTimeout(() => navigate(ROUTES.DASHBOARD), 600);
         } catch (err) {
             if (err.status === 0 || err.message?.includes('Network') || err.message?.includes('network') || err.message?.includes('Failed to fetch')) {
-                updateUser({ hasPat: true, githubUsername: user?.email?.split('@')[0] || 'contributor', patToken: trimmed });
-                showToast('Token saved to your active session!', 'success');
+                updateUser({ hasPat: true, githubUsername: emailToUse.split('@')[0] || 'contributor' });
+                showToast('Backend offline: PAT accepted for local session!', 'info');
                 setTimeout(() => navigate(ROUTES.DASHBOARD), 600);
             } else {
-                setError(err.message || 'Failed to validate PAT. Please check your token and try again.');
+                setError(err.message || 'Failed to validate PAT. Please check your token permissions and try again.');
             }
         } finally {
             setLoading(false);

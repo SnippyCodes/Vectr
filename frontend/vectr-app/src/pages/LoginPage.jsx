@@ -31,7 +31,7 @@ export default function LoginPage() {
                 let data;
                 try {
                     data = await authAPI.googleLogin(token);
-                } catch (e) {
+                } catch {
                     data = { email: result.user.email, has_pat: false, experience_level: 'Intermediate' };
                 }
                 login({
@@ -47,7 +47,7 @@ export default function LoginPage() {
         }).catch(err => {
             console.error("Auth redirect error:", err);
         });
-    }, []);
+    }, [login, navigate, showToast]);
 
     const handleGoogleLogin = async () => {
         setError('');
@@ -58,7 +58,7 @@ export default function LoginPage() {
             let data;
             try {
                 data = await authAPI.googleLogin(token);
-            } catch (apiErr) {
+            } catch {
                 data = { email: result.user.email, has_pat: false, experience_level: 'Intermediate' };
             }
             login({
@@ -76,7 +76,7 @@ export default function LoginPage() {
                     showToast('Popup blocked by browser. Redirecting to sign in...', 'info');
                     await signInWithRedirect(auth, googleProvider);
                     return;
-                } catch (redirectErr) {
+                } catch {
                     setError('Browser blocked the popup. Please allow popups or use Email/Password sign in.');
                 }
             } else {
@@ -96,7 +96,7 @@ export default function LoginPage() {
             let data;
             try {
                 data = await authAPI.googleLogin(token);
-            } catch (apiErr) {
+            } catch {
                 data = { email: result.user.email, has_pat: false, experience_level: 'Intermediate' };
             }
             login({
@@ -114,7 +114,7 @@ export default function LoginPage() {
                     showToast('Popup blocked by browser. Redirecting to sign in...', 'info');
                     await signInWithRedirect(auth, githubProvider);
                     return;
-                } catch (redirectErr) {
+                } catch {
                     setError('Browser blocked the popup. Please allow popups or use Email/Password sign in.');
                 }
             } else {
@@ -322,29 +322,6 @@ export default function LoginPage() {
                                 </button>
                             </p>
                         )}
-                    </div>
-
-                    {/* Quick Demo Cockpit Access */}
-                    <div className="mt-5 pt-4 border-t border-white/[0.08]">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                login({
-                                    email: 'dev@vectr.ai',
-                                    hasPat: true,
-                                    authType: 'github',
-                                    token: 'mock-token',
-                                    githubUsername: 'AaryanParik',
-                                    experienceLevel: 'Advanced',
-                                });
-                                showToast('Loaded demo contributor cockpit session', 'success');
-                                navigate(ROUTES.DASHBOARD);
-                            }}
-                            className="w-full py-2.5 px-4 rounded-full text-xs font-mono font-medium tracking-wide text-[#d4d4d8] hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/[0.16] transition-all flex items-center justify-center gap-2 group cursor-pointer"
-                        >
-                            <span>Quick Demo Cockpit Access</span>
-                            <span className="text-[#888891] group-hover:text-white group-hover:translate-x-0.5 transition-all">→</span>
-                        </button>
                     </div>
                 </div>
             </div>

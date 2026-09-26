@@ -20,7 +20,7 @@ export function AuthProvider({ children }) {
         }
     });
 
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading] = useState(false);
 
     // Sync to localStorage whenever user changes
     useEffect(() => {
@@ -29,7 +29,6 @@ export function AuthProvider({ children }) {
         } else {
             localStorage.removeItem(STORAGE_KEYS.USER);
         }
-        setIsLoading(false);
     }, [user]);
 
     // Listen for storage events (logout from other tabs)

@@ -31,78 +31,24 @@ export default function DashboardPage() {
             const data = await dashboardAPI.get(user.email);
             setDashboard(data);
             setError('');
-        } catch {
-            // Realistic open source contributor sandbox fallback
+        } catch (err) {
+            setError(err.message || 'Failed to load dashboard data. Connect your GitHub PAT to see live contributions.');
             setDashboard({
                 user_name: user?.githubUsername || user?.email?.split('@')[0] || 'Contributor',
                 experience_level: user?.experienceLevel || 'Intermediate',
                 has_pat: Boolean(user?.hasPat),
-                my_contributions: [
-                    { 
-                        repo_name: 'tiangolo/fastapi', 
-                        issue_number: 4920, 
-                        issue_title: 'Docs: Fix broken tutorial link and add curl examples', 
-                        status: 'In Progress',
-                        difficulty: 'Beginner',
-                        updated_at: '2h ago'
-                    },
-                    { 
-                        repo_name: 'pallets/flask', 
-                        issue_number: 3102, 
-                        issue_title: 'Refactor CLI command parsing for options in Click integration', 
-                        status: 'Draft PR Ready',
-                        difficulty: 'Intermediate',
-                        updated_at: 'Yesterday'
-                    },
-                    { 
-                        repo_name: 'django/django', 
-                        issue_number: 34102, 
-                        issue_title: 'Support async database transaction rollback handling', 
-                        status: 'In Progress',
-                        difficulty: 'Expert',
-                        updated_at: '3d ago'
-                    }
-                ],
-                working_issues: [
-                    { 
-                        repo_name: 'tiangolo/fastapi', 
-                        issue_number: 4920, 
-                        title: 'Docs: Fix broken tutorial link and add curl examples', 
-                        difficulty: 'Beginner',
-                        branch_name: 'fix/fastapi-4920-tutorial-link',
-                        current_step: 3,
-                        step_label: 'Code Guidance',
-                        stars: '74.2k',
-                        language: 'Python'
-                    }
-                ],
-                commit_map: [
-                    { date: '2026-08-20', count: 2 },
-                    { date: '2026-08-22', count: 4 },
-                    { date: '2026-08-25', count: 1 },
-                    { date: '2026-08-29', count: 3 },
-                    { date: '2026-09-01', count: 3 },
-                    { date: '2026-09-04', count: 5 },
-                    { date: '2026-09-08', count: 2 },
-                    { date: '2026-09-10', count: 4 },
-                    { date: '2026-09-11', count: 6 },
-                    { date: '2026-09-12', count: 3 },
-                    { date: '2026-09-13', count: 5 },
-                    { date: '2026-09-14', count: 7 }
-                ],
-                pull_requests: [
-                    { title: 'fix: align response model schemas', repo_name: 'tiangolo/fastapi', pr_number: 1044, status: 'open', readiness: 94 },
-                    { title: 'docs: clarify middleware execution order', repo_name: 'pallets/flask', pr_number: 3105, status: 'merged', readiness: 100 }
-                ],
+                my_contributions: [],
+                working_issues: [],
+                commit_map: [],
+                pull_requests: [],
                 stats: {
-                    pr_readiness_avg: 94,
-                    total_contributions: 14,
-                    streak_days: 6,
-                    active_issues_count: 2
+                    pr_readiness_avg: 0,
+                    total_contributions: 0,
+                    streak_days: 0,
+                    active_issues_count: 0
                 },
-                is_sandbox: true
+                is_sandbox: false
             });
-            setError('');
         } finally {
             if (showRefresh) setIsRefreshing(false);
             else setLoading(false);
@@ -242,7 +188,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] transition-all flex items-center justify-between">
                     <span className="text-xs text-[#888891] font-medium">Target Repo</span>
-                    <span className="text-xs font-medium text-white">tiangolo/fastapi</span>
+                    <span className="text-xs font-medium text-white truncate max-w-[130px]">{activeIssue?.repo_name || 'None Selected'}</span>
                 </div>
                 <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] transition-all flex items-center justify-between">
                     <span className="text-xs text-[#888891] font-medium">Sprint Streak</span>
@@ -250,7 +196,7 @@ export default function DashboardPage() {
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
                         </svg>
-                        <span>6 Days</span>
+                        <span>{dashboard?.stats?.streak_days ? `${dashboard.stats.streak_days} Days` : '0 Days'}</span>
                     </span>
                 </div>
             </div>
@@ -277,10 +223,14 @@ export default function DashboardPage() {
                             </span>
                         </div>
                         <h2 className="text-base font-semibold text-white leading-snug">
-                            2 Good First Issues indexed in your favorite repositories.
+                            {activeIssue 
+                                ? `${activeIssue.repo_name} #${activeIssue.issue_number} in progress.`
+                                : 'Explore open source issues to begin your guided sprint.'}
                         </h2>
                         <p className="text-xs text-[#888891] mt-2 leading-relaxed font-sans">
-                            {activeProvider.name} isolated the broken tutorial links in fastapi/docs and prepared pytest regression fixtures ready for pull request.
+                            {activeIssue 
+                                ? `${activeProvider.name} is ready with step-by-step guidance, code context, and PR readiness analysis.`
+                                : `Connect your GitHub PAT and choose an organization to start contributing.`}
                         </p>
                     </div>
 
@@ -356,8 +306,11 @@ export default function DashboardPage() {
 
                     <div className="pt-2 border-t border-white/[0.06] flex items-center justify-end">
                         <button
-                            onClick={() => handleIssueClick(activeIssue?.repo_name || 'tiangolo/fastapi', activeIssue?.issue_number || 4920)}
-                            className="cockpit-btn-secondary px-3.5 py-1.5 text-xs font-medium flex items-center gap-1.5 cursor-pointer"
+                            onClick={() => activeIssue && handleIssueClick(activeIssue.repo_name, activeIssue.issue_number)}
+                            disabled={!activeIssue}
+                            className={`px-3.5 py-1.5 text-xs font-medium flex items-center gap-1.5 ${
+                                activeIssue ? 'cockpit-btn-secondary cursor-pointer' : 'text-[#6b6d7a] cursor-not-allowed bg-white/[0.02] border border-white/[0.04] rounded-lg'
+                            }`}
                         >
                             <span>Open in Studio</span>
                             <span className="text-amber-400">→</span>
@@ -370,7 +323,7 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-sm font-semibold text-white">PR Readiness Score</h3>
                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-medium border border-emerald-500/20">
-                            Passing (94%)
+                            {dashboard?.stats?.pr_readiness_avg ? `${dashboard.stats.pr_readiness_avg}%` : '0%'}
                         </span>
                     </div>
 
@@ -393,13 +346,13 @@ export default function DashboardPage() {
                                     stroke="#f59e0b"
                                     strokeWidth="6"
                                     strokeDasharray={2 * Math.PI * 32}
-                                    strokeDashoffset={2 * Math.PI * 32 * (1 - 0.94)}
+                                    strokeDashoffset={2 * Math.PI * 32 * (1 - (dashboard?.stats?.pr_readiness_avg || 0) / 100)}
                                     strokeLinecap="round"
                                     fill="transparent"
                                 />
                             </svg>
                             <div className="absolute text-center">
-                                <span className="text-base font-bold text-white">94%</span>
+                                <span className="text-base font-bold text-white">{dashboard?.stats?.pr_readiness_avg || 0}%</span>
                             </div>
                         </div>
 
@@ -407,22 +360,22 @@ export default function DashboardPage() {
                         <div className="space-y-1.5 text-xs">
                             <div className="flex items-center gap-2 text-emerald-400">
                                 <span>✓</span>
-                                <span className="text-[#9496a1]">Pytest (14/14)</span>
+                                <span className="text-[#9496a1]">Automated Tests</span>
                             </div>
                             <div className="flex items-center gap-2 text-emerald-400">
                                 <span>✓</span>
-                                <span className="text-[#9496a1]">Ruff Linter Clean</span>
+                                <span className="text-[#9496a1]">Linter Clean</span>
                             </div>
                             <div className="flex items-center gap-2 text-amber-300 font-medium">
                                 <span>●</span>
-                                <span className="text-[#9496a1]">Docs (+12 lines)</span>
+                                <span className="text-[#9496a1]">Documentation</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs text-[#888891]">
-                        <span>2 PRs drafted</span>
-                        <span className="text-emerald-400 font-medium">1 PR merged</span>
+                        <span>{dashboard?.pull_requests?.length || 0} PRs tracked</span>
+                        <span className="text-emerald-400 font-medium">{dashboard?.stats?.total_contributions || 0} Total contributions</span>
                     </div>
                 </div>
             </div>
@@ -575,13 +528,11 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-3 flex-wrap">
                         <h3 className="text-sm font-semibold text-white uppercase tracking-wider">GitHub Contribution Activity</h3>
                         <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/[0.04] text-[#9496a1] border border-white/[0.06]">
-                            14 contributions this year
+                            {commitData.reduce((acc, c) => acc + (c.count || 0), 0)} contributions tracked
                         </span>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-[#888891]">
-                        <span>Streak: <strong className="text-amber-400">6 days</strong></span>
-                        <span className="text-white/20">|</span>
-                        <span>Best: <strong className="text-white">18 days</strong></span>
+                        <span>Streak: <strong className="text-amber-400">{dashboard?.stats?.streak_days || 0} days</strong></span>
                     </div>
                 </div>
 
