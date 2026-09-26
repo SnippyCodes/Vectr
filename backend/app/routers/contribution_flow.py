@@ -1,12 +1,12 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy.orm import Session
-import models as models
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session  
+from sqlalchemy import func
+import models
 import app.schemas as schemas
 from database import get_db
 import requests as rq
 from app.utils.encryption import decrypt_pat
 from typing import Optional
-from app.main import limiter
 
 routes = APIRouter(prefix="/contribution", tags=["Contribution Flow"])
 
@@ -21,7 +21,8 @@ def start_contribution(
     db: Session = Depends(get_db)):
     
     # 1. Fetch User 
-    user = db.query(models.User).filter(models.User.email == email).first()
+    clean_email = email.strip().lower()
+    user = db.query(models.User).filter(func.lower(models.User.email) == clean_email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User Not Found")
         
@@ -42,7 +43,7 @@ def start_contribution(
         
     pat = decrypt_pat(user.github_pat)
     headers = {
-        "Authorization": f"token {pat}",
+        "Authorization": f"Bearer {pat}",
         "Accept": "application/vnd.github.v3+json"
     }
 
@@ -78,9 +79,9 @@ def start_contribution(
                 "q": f"language:{search_language}",
                 "sort": "stars",
                 "order": "desc",
-                "per_page": 100
+                "per_page": 50
             }
-            res = rq.get(search_url, headers=headers, params=params)
+            res = rq.get(search_url, headers=headers, params=params, timeout=12)
             res.raise_for_status()
             
             items = res.json().get("items", [])
@@ -122,16 +123,18 @@ def start_contribution(
         )
             
     except rq.exceptions.HTTPError as e:
-        if e.response.status_code == 401:
-            raise HTTPException(status_code=401, detail="Invalid GitHub PAT token.")
-        raise HTTPException(status_code=e.response.status_code, detail="Failed to fetch data from GitHub.")
+        status_code = e.response.status_code if e.response is not None else 500
+        if status_code == 401:
+            raise HTTPException(status_code=400, detail="Invalid GitHub PAT token. Please update it in Settings.")
+        raise HTTPException(status_code=status_code, detail="Failed to fetch data from GitHub.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching organizations: {str(e)}")
 
 @routes.post("/submit-pr")
 async def submit_pr(req: schemas.SubmitPRRequest, db: Session = Depends(get_db)):
     # 1. Verify User
-    user = db.query(models.User).filter(models.User.email == req.user_email).first()
+    clean_email = req.user_email.strip().lower()
+    user = db.query(models.User).filter(func.lower(models.User.email) == clean_email).first()
     if not user or not user.github_pat:
         raise HTTPException(status_code=404, detail="User not found or GitHub PAT missing")
 

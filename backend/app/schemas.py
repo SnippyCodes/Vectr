@@ -91,18 +91,24 @@ class StartContributionResponse(BaseModel):
 class RepoItem(BaseModel):
     name: str # e.g. "react"
     full_name: str # e.g. "facebook/react"
-    description: Optional[str]
-    language: Optional[str]
-    open_issues_count: int
-    stars: int
+    description: Optional[str] = None
+    language: Optional[str] = None
+    open_issues_count: int = 0
+    stars: int = 0
+    opportunity_score: Optional[int] = 0
+    congestion_level: Optional[str] = None
+    estimated_review_time: Optional[str] = None
 
 class IssueItem(BaseModel):
     number: int
     title: str
     state: str
     html_url: str
-    body: Optional[str] # Might be needed for Nova
-    labels: List[str]
+    body: Optional[str] = None # Might be needed for Nova
+    labels: List[str] = []
+    difficulty: Optional[str] = None
+    merge_probability: Optional[str] = None
+    is_unclaimed: Optional[bool] = True
 
 class RepoListResponse(BaseModel):
     org_name: str
