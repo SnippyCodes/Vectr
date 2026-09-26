@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Vectr - Single-Region Foundation Stack (ap-south-1): S3 Backup Storage & Lifecycle Management'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+    Description: Environment name (production, staging, dev)
+
+Resources:
+  VectrBackupBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'vectr-backups-${AWS::AccountId}-${AWS::Region}'
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionToGlacierAndExpire
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 30
+                StorageClass: GLACIER
+            ExpirationInDays: 365
+            NoncurrentVersionTransitions:
+              - TransitionInDays: 30
+                StorageClass: GLACIER
+            NoncurrentVersionExpirationInDays: 365
+      Tags:
+        - Key: Project
+          Value: Vectr
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+Outputs:
+  BackupBucketName:
+    Description: Name of the S3 bucket used for PostgreSQL database backups
+    Value: !Ref VectrBackupBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-BackupBucketName'
+
+  BackupBucketArn:
+    Description: ARN of the S3 bucket used for PostgreSQL database backups
+    Value: !GetAtt VectrBackupBucket.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-BackupBucketArn'
