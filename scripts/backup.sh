@@ -1,19 +1,18 @@
-﻿#!/bin/bash
+#!/bin/bash
 # Vectr - Daily PostgreSQL backup to AWS S3
 # Runs via cron: 0 2 * * * /opt/vectr/scripts/backup.sh >> /var/log/vectr-backup.log 2>&1
 set -euo pipefail
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BUCKET="vectr-production-backups"
-CONTAINER="vectr-postgres-1"
+BUCKET="${S3_BACKUP_BUCKET:-vectr-backups-366950764806-ap-south-1}"
 POSTGRES_USER="vectr"
 POSTGRES_DB="vectr_production"
 KEEP_DAYS=30
 
 echo "[$(date)] Starting backup..."
 
-# Dump and stream directly to S3 (no local disk usage)
-docker exec "$CONTAINER" pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
+# Dump and stream directly to S3 (no local disk usage) via Docker Compose service
+docker compose -f /opt/vectr/docker-compose.prod.yml exec -T postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
   | gzip \
   | aws s3 cp - "s3://${BUCKET}/postgres/backup_${TIMESTAMP}.sql.gz" \
     --storage-class STANDARD_IA

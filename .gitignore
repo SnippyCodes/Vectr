@@ -39,8 +39,16 @@ Thumbs.db
 !package.json
 !package-lock.json
 
-# Local agent skills (Garry Tan / gstack — do NOT push)
+# Local agent skills & instruction files (do NOT commit / expose)
 .agents/
+.claude/
+.gemini/
+CLAUDE.md
+claude.md
+*claude*.md
+AGENTS.md
+agent.md
+*agent*.md
 
 # Production secrets (NEVER commit these)
 secrets/db_password.txt

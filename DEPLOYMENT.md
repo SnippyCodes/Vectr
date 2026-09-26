@@ -1,4 +1,4 @@
-﻿# Vectr — Production Deployment Guide
+# Vectr — Production Deployment Guide
 
 **Monthly cost: ~$3.55/mo | Credit runway: ~28 months on $100**
 
@@ -77,6 +77,13 @@ ssh -i your-lightsail-key.pem ubuntu@YOUR_STATIC_IP
 
 # Update system
 sudo apt update && sudo apt upgrade -y
+
+# Configure 2 GB NVMe Swap (MANDATORY on 1 GB RAM Lightsail to prevent OOM kernel kills)
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 # Install Docker
 curl -fsSL https://get.docker.com | sh
