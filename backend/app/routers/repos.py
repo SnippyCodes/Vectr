@@ -1,26 +1,28 @@
 import base64
-from typing import Optional, List
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 import httpx
 
-import models as models
+import models
 import app.schemas as schemas
 from database import get_db
 from app.utils.encryption import decrypt_pat
-from app.main import limiter
+from app.limiter import limiter
 
 routes = APIRouter(prefix="/repos", tags=["Repository & Issues"])
 
 def get_github_token(email: str, db: Session) -> str:
-    user = db.query(models.User).filter(models.User.email == email).first()
+    clean_email = email.strip().lower()
+    user = db.query(models.User).filter(func.lower(models.User.email) == clean_email).first()
     if not user or not user.github_pat:
         raise HTTPException(status_code=400, detail="User's Github PAT is missing")
     return decrypt_pat(user.github_pat)
 
 def get_github_headers(token: str):
     return {
-        "Authorization": f"token {token}",
+        "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github.v3+json",
         "User-Agent": "Vectr-OpenSource-App"
     }

@@ -26,29 +26,24 @@ async def run_cmd_async(cmd: str, cwd: str = None):
     return await asyncio.to_thread(_sync_run_cmd, cmd, cwd)
 
 def generate_tree(dir_path: str, max_depth: int = 3, current_depth: int = 0) -> str:
-    """Generate a simple file tree string."""
-    if current_depth > max_depth:
-        return "  " * current_depth + "...\n"
-    
-    ignore_dirs = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build", ".next"}
-    
-    tree_str = ""
-    try:
-        entries = sorted(os.listdir(dir_path))
-    except Exception:
-        return tree_str
-        
-    for entry in entries:
-        if entry in ignore_dirs:
+    """Generate a compact directory tree using stdlib os.walk."""
+    if current_depth > max_depth or not os.path.exists(dir_path):
+        return ""
+    ignore = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build", ".next"}
+    lines = []
+    base_depth = dir_path.rstrip(os.sep).count(os.sep)
+    for root, dirs, files in os.walk(dir_path):
+        dirs[:] = [d for d in sorted(dirs) if d not in ignore]
+        depth = root.count(os.sep) - base_depth
+        if depth > max_depth:
             continue
-        
-        full_path = os.path.join(dir_path, entry)
-        tree_str += "  " * current_depth + f"- {entry}\n"
-        
-        if os.path.isdir(full_path):
-            tree_str += generate_tree(full_path, max_depth, current_depth + 1)
-            
-    return tree_str
+        indent = "  " * depth
+        rel_dir = os.path.basename(root)
+        if depth > 0:
+            lines.append(f"{indent}- {rel_dir}/")
+        for f in sorted(files):
+            lines.append(f"{indent}  - {f}")
+    return "\n".join(lines[:100]) + "\n"
 
 def get_readme_content(repo_dir: str) -> str:
     for filename in ["README.md", "readme.md", "README.txt", "README"]:
@@ -61,7 +56,7 @@ def get_readme_content(repo_dir: str) -> str:
                 pass
     return "No README content found."
 
-async def _invoke_nova_for_analysis(client, repo_name: str, tree: str, readme: str) -> str:
+async def _invoke_nova_for_analysis(repo_name: str, tree: str, readme: str) -> str:
     """Generates a deep technical context summary of the repository using the unified AI engine."""
     try:
         from app.services.ai_service import call_ai_engine
@@ -86,7 +81,7 @@ async def _invoke_nova_for_analysis(client, repo_name: str, tree: str, readme: s
         print(f"Error invoking AI engine for static analysis: {e}")
         return "Could not generate deep structural analysis at this time."
 
-async def _invoke_nova_for_diff_summary(client, diff_str: str) -> str:
+async def _invoke_nova_for_diff_summary(diff_str: str) -> str:
     """Generates a short concise summary of a git diff using the unified AI engine."""
     if not diff_str.strip():
         return "No significant code changes found."
@@ -111,7 +106,7 @@ async def _invoke_nova_for_diff_summary(client, diff_str: str) -> str:
         print(f"Error invoking AI engine for diff summary: {e}")
         return "Could not summarize the recent commit diff."
 
-async def analyze_and_cache_repo(repo_name: str, db: Session, bedrock_client) -> str:
+async def analyze_and_cache_repo(repo_name: str, db: Session, bedrock_client=None) -> str:
     """Returns the cached analysis, or generates and stores one."""
     cached = db.query(models.RepoAnalysis).filter(models.RepoAnalysis.repo_name == repo_name).first()
     if cached:
@@ -131,7 +126,7 @@ async def analyze_and_cache_repo(repo_name: str, db: Session, bedrock_client) ->
     tree = generate_tree(repo_dir)
     readme = get_readme_content(repo_dir)
 
-    analysis_str = await _invoke_nova_for_analysis(bedrock_client, repo_name, tree, readme)
+    analysis_str = await _invoke_nova_for_analysis(repo_name, tree, readme)
     
     # Save to db
     from sqlalchemy.exc import IntegrityError
@@ -201,12 +196,8 @@ async def evaluate_local_commits(repo_name: str, issue_number: int, user_email: 
         await run_cmd_async(f"git pull origin {branch_name}", cwd=repo_dir)
          
     # 2. Get git diff with whichever branch it branched from (usually main or master)
-    # Finding default branch:
     code, def_branch_out, err = await run_cmd_async("git symbolic-ref refs/remotes/origin/HEAD", cwd=repo_dir)
-    if code != 0:
-         default_branch = "main" # Fallback
-    else:
-         default_branch = def_branch_out.strip().split('/')[-1]
+    default_branch = "main" if code != 0 else def_branch_out.strip().split('/')[-1]
 
     code, diff_out, err = await run_cmd_async(f"git diff {default_branch}...{branch_name}", cwd=repo_dir)
     
@@ -232,12 +223,9 @@ async def evaluate_local_commits(repo_name: str, issue_number: int, user_email: 
          code, t_out, t_err = await run_cmd_async("pytest --maxfail=1", cwd=repo_dir)
          test_results = f"Pytest suite ran (exit code {code}):\nSTDOUT:\n{t_out[-1000:]}\nSTDERR:\n{t_err[-1000:]}"
          
-         
     # Generate an AI summary of the diff so we don't spam the chat context with 3000 chars of pure code
     try:
-        from app.routers.ask_nova import get_bedrock_client
-        client = get_bedrock_client()
-        diff_summary = await _invoke_nova_for_diff_summary(client, diff_str)
+        diff_summary = await _invoke_nova_for_diff_summary(diff_str)
     except Exception as e:
         diff_summary = f"Summary failed: {e}. Raw diff truncated length: {len(diff_str)}"
 
@@ -252,10 +240,10 @@ async def evaluate_local_commits(repo_name: str, issue_number: int, user_email: 
     )
     return evaluation
 
-async def get_local_diff_stat(repo_name: str, issue_number: int, user_email: str, db: Session) -> str:
-    """Gets the git diff --stat for the user's issue branch against the default branch."""
+
+async def _resolve_repo_context(repo_name: str, issue_number: int, user_email: str, db: Session):
+    """Helper: resolves workspace dir, default branch, and target branch for diff operations."""
     repo_short_name = repo_name.split('/')[-1] if '/' in repo_name else repo_name
-    
     github_username = None
     try:
         import requests as req
@@ -267,75 +255,41 @@ async def get_local_diff_stat(repo_name: str, issue_number: int, user_email: str
             if res.status_code == 200:
                 github_username = res.json().get("login")
     except Exception as e:
-        print(f"Error fetching github username for diff stat route: {e}")
+        print(f"Error fetching github username: {e}")
         
     if not github_username:
-        return "Failed to authenticate with GitHub."
+        return None, None, None
         
     repo_dir = os.path.join(WORKSPACES_DIR, f"{github_username}_{repo_short_name}")
-    
     if not os.path.exists(repo_dir):
-        return "No local checkout found. Make sure you have opened this issue in VS Code."
+        return None, None, None
              
     branch_name = f"fix/issue-{issue_number}"
-    
-    code, def_branch_out, err = await run_cmd_async("git symbolic-ref refs/remotes/origin/HEAD", cwd=repo_dir)
-    if code != 0:
-         default_branch = "main"
-    else:
-         default_branch = def_branch_out.strip().split('/')[-1]
+    code, def_branch_out, _ = await run_cmd_async("git symbolic-ref refs/remotes/origin/HEAD", cwd=repo_dir)
+    default_branch = "main" if code != 0 else def_branch_out.strip().split('/')[-1]
+    return repo_dir, default_branch, branch_name
 
-    # Just run git diff --stat to get files and lines changed
-    code, diff_out, err = await run_cmd_async(f"git diff --stat {default_branch}...{branch_name}", cwd=repo_dir)
-    
-    if not diff_out.strip() or code != 0:
-        return "No code changes detected yet."
-        
-    return diff_out.strip()
+
+async def get_local_diff_stat(repo_name: str, issue_number: int, user_email: str, db: Session) -> str:
+    """Gets the git diff --stat for the user's issue branch against the default branch."""
+    repo_dir, default_branch, branch_name = await _resolve_repo_context(repo_name, issue_number, user_email, db)
+    if not repo_dir:
+        return "No local checkout found. Make sure you have opened this issue in VS Code."
+
+    code, diff_out, _ = await run_cmd_async(f"git diff --stat {default_branch}...{branch_name}", cwd=repo_dir)
+    return diff_out.strip() if diff_out.strip() and code == 0 else "No code changes detected yet."
 
 
 async def get_local_diff_patch(repo_name: str, issue_number: int, user_email: str, db: Session) -> str:
     """Gets the full git diff (patch) for the user's issue branch against the default branch."""
-    repo_short_name = repo_name.split('/')[-1] if '/' in repo_name else repo_name
-    
-    github_username = None
-    try:
-        import requests as req
-        from app.utils.encryption import decrypt_pat
-        user_record = db.query(models.User).filter(models.User.email == user_email).first()
-        if user_record and user_record.github_pat:
-            decrypted_pat = decrypt_pat(user_record.github_pat)
-            res = req.get("https://api.github.com/user", headers={"Authorization": f"Bearer {decrypted_pat}"})
-            if res.status_code == 200:
-                github_username = res.json().get("login")
-    except Exception as e:
-        print(f"Error fetching github username for diff patch: {e}")
-        
-    if not github_username:
+    repo_dir, default_branch, branch_name = await _resolve_repo_context(repo_name, issue_number, user_email, db)
+    if not repo_dir:
         return ""
-        
-    repo_dir = os.path.join(WORKSPACES_DIR, f"{github_username}_{repo_short_name}")
-    
-    if not os.path.exists(repo_dir):
-        return ""
-             
-    branch_name = f"fix/issue-{issue_number}"
-    
-    code, def_branch_out, err = await run_cmd_async("git symbolic-ref refs/remotes/origin/HEAD", cwd=repo_dir)
-    if code != 0:
-         default_branch = "main"
-    else:
-         default_branch = def_branch_out.strip().split('/')[-1]
 
-    code, diff_out, err = await run_cmd_async(f"git diff {default_branch}...{branch_name}", cwd=repo_dir)
-    
+    code, diff_out, _ = await run_cmd_async(f"git diff {default_branch}...{branch_name}", cwd=repo_dir)
     if not diff_out.strip() or code != 0:
         return ""
     
-    # Truncate to avoid overwhelming Nova's context
     full_diff = diff_out.strip()
-    if len(full_diff) > 8000:
-        full_diff = full_diff[:8000] + "\n\n... (diff truncated, showing first 8000 chars)"
-        
-    return full_diff
+    return full_diff[:8000] + "\n\n... (diff truncated, showing first 8000 chars)" if len(full_diff) > 8000 else full_diff
 

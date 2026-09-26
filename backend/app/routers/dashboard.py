@@ -1,12 +1,13 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 import models as models
 import app.schemas as schemas
 from database import get_db
 import httpx
 from app.utils.encryption import decrypt_pat
 from datetime import datetime, timedelta
-from app.main import limiter
+from app.limiter import limiter
 
 routes = APIRouter(prefix="/user", tags=["Dashboard"])
 
@@ -14,7 +15,8 @@ routes = APIRouter(prefix="/user", tags=["Dashboard"])
 @limiter.limit("10/minute")
 async def user_dashboard(request: Request, email: str, db: Session = Depends(get_db)):
     # 1. Fetch User from DB
-    user = db.query(models.User).filter(models.User.email == email).first()
+    clean_email = email.strip().lower()
+    user = db.query(models.User).filter(func.lower(models.User.email) == clean_email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User Not Found")
     if not user.github_pat:
@@ -25,7 +27,7 @@ async def user_dashboard(request: Request, email: str, db: Session = Depends(get
     exp_level = user.experience_lvl.capitalize()
     
     headers = {
-        "Authorization": f"token {pat}",
+        "Authorization": f"Bearer {pat}",
         "Accept": "application/vnd.github.v3+json"
     }
     

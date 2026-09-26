@@ -2,7 +2,12 @@ import os
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 
-# Load environment variables
+from pathlib import Path
+
+# Load environment variables from backend directory or cwd
+backend_env = Path(__file__).resolve().parent.parent.parent / '.env'
+if backend_env.exists():
+    load_dotenv(dotenv_path=backend_env)
 load_dotenv()
 
 # We need a consistent key for encryption/decryption

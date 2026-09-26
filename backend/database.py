@@ -14,8 +14,16 @@ if not DATABASE_URL:
     if ENDPOINT and ENDPOINT != "localhost":
         DB_USER = os.getenv("DB_USER", "postgres")
         DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+        # Read Docker secret if available
+        if not DB_PASSWORD and os.path.exists("/run/secrets/db_password"):
+            try:
+                with open("/run/secrets/db_password", "r") as f:
+                    DB_PASSWORD = f.read().strip()
+            except Exception:
+                pass
         DB_NAME = os.getenv("DB_NAME", "postgres")
-        DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{ENDPOINT}:5432/{DB_NAME}?sslmode=require"
+        DB_SSLMODE = os.getenv("DB_SSLMODE", "prefer")
+        DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{ENDPOINT}:5432/{DB_NAME}?sslmode={DB_SSLMODE}"
     else:
         DATABASE_URL = "sqlite:///./vectr.db"
 

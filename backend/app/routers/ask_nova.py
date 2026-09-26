@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 import app.schemas as schemas
 import models
 from database import get_db
@@ -7,42 +7,14 @@ from app.utils.repo_analyzer import analyze_and_cache_repo, evaluate_local_commi
 import json
 import os
 import asyncio
-from typing import List
 import re
 import requests as req
 from app.utils.encryption import decrypt_pat
-from app.main import limiter
 import time
 
 nova_testing_steps_locks = {}
 
 routes = APIRouter(prefix="/nova", tags=["Bedrock AI Chat"])
-
-# Initialize AWS Bedrock Runtime Client (Optional)
-def get_bedrock_client():
-    try:
-        import boto3
-        client_kwargs = {
-            "service_name": "bedrock-runtime",
-            "region_name": os.getenv("AWS_REGION", "us-east-1").strip().strip('"').strip("'")
-        }
-        
-        access_key = os.getenv("AWS_ACCESS_KEY_ID")
-        secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-        
-        if access_key and secret_key:
-            client_kwargs["aws_access_key_id"] = access_key.strip().strip('"').strip("'")
-            client_kwargs["aws_secret_access_key"] = secret_key.strip().strip('"').strip("'")
-            
-        endpoint_url = os.getenv("AWS_ENDPOINT_URL")
-        if endpoint_url:
-            client_kwargs["endpoint_url"] = endpoint_url.strip().strip('"').strip("'")
-            
-        client = boto3.client(**client_kwargs)
-        return client
-    except Exception as e:
-        print(f"Error initializing Bedrock client: {e}")
-        return None
 
 @routes.post("/ask", response_model=schemas.AskNovaResponse)
 async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db)):
@@ -289,10 +261,6 @@ async def ask_nova(request: schemas.AskNovaRequest, db: Session = Depends(get_db
 #Summarizer Route
 @routes.post("/summarize", response_model=schemas.SummarizeIssueResponse)
 async def summarize_issue(request: schemas.SummarizeIssueRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    client = get_bedrock_client()
-    if not client:
-        raise HTTPException(status_code=500, detail="Failed to initialize AWS Bedrock Client.")
-
     repo_short_name = request.repo_name.split('/')[-1] if '/' in request.repo_name else request.repo_name
     
     # Securely retrieve PAT and GitHub Username
@@ -352,10 +320,9 @@ async def summarize_issue(request: schemas.SummarizeIssueRequest, background_tas
         
         try:
             # We need to run the async function in a new or existing event loop
-            client_bg = get_bedrock_client()
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(analyze_and_cache_repo(repo_name, db_bg, client_bg))
+            loop.run_until_complete(analyze_and_cache_repo(repo_name, db_bg))
             loop.close()
         except Exception as e:
             print(f"Failed to analyze repo in background summarize step: {str(e)}")
@@ -389,17 +356,6 @@ async def summarize_issue(request: schemas.SummarizeIssueRequest, background_tas
         "testing_steps": "A step-by-step guide on how to test this fix locally."
     }}
     """
-
-    # 3. Request structure for Amazon Nova
-    body = {
-        "system": [{"text": system_prompt}],
-        "messages": [{"role": "user", "content": [{"text": "Please provide the summary JSON."}]}],
-        "inferenceConfig": {
-            "temperature": 0.2, # Keeps the model highly factual and strict
-            "topP": 0.9,
-            "maxTokens": 1000
-        }
-    }
 
     try:
         from app.services.ai_service import call_ai_engine

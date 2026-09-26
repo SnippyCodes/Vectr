@@ -1,5 +1,6 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 import requests
 import os
 import models as models
@@ -8,21 +9,22 @@ from database import get_db
 from app.utils.encryption import encrypt_pat
 from bcrypt import hashpw, checkpw, gensalt
 
-routes = APIRouter(prefix="/user",tags=["Authentication"])
+routes = APIRouter(prefix="/user", tags=["Authentication"])
 
 
 @routes.post("/signup", response_model=schemas.UserResponse)
 def signup(email: str, pat: str, password: str, level: str, db: Session = Depends(get_db)):
-    existing_user = db.query(models.User).filter(models.User.email == email).first()
+    clean_email = email.strip().lower()
+    existing_user = db.query(models.User).filter(func.lower(models.User.email) == clean_email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email Already Registered")
         
-    encrypted_pat = encrypt_pat(pat) if pat else None
+    encrypted_pat = encrypt_pat(pat.strip()) if pat and pat.strip() else None
     
     # Hash the password with bcrypt before storing
     hashed_password = hashpw(password.encode('utf-8'), gensalt()).decode('utf-8')
     
-    new_user = models.User(email=email, github_pat=encrypted_pat, password=hashed_password, experience_lvl=level)
+    new_user = models.User(email=clean_email, github_pat=encrypted_pat, password=hashed_password, experience_lvl=level)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -34,16 +36,21 @@ def signup(email: str, pat: str, password: str, level: str, db: Session = Depend
 
 @routes.post("/login")
 def login(email: str, password: str, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == email).first()
+    clean_email = email.strip().lower()
+    user = db.query(models.User).filter(func.lower(models.User.email) == clean_email).first()
 
     if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
-    # Verify password using bcrypt
-    if not checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
+    # Verify password using bcrypt (guard against non-bcrypt placeholder hashes)
+    try:
+        if not checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
+            raise HTTPException(status_code=401, detail="Invalid username or password")
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid username or password")
         
     return {"message": "Login Successful", "email": user.email, "has_pat": bool(user.github_pat)}
+
 
 @routes.post("/google-login")
 def google_login(request: Request, db: Session = Depends(get_db)):
@@ -68,34 +75,36 @@ def google_login(request: Request, db: Session = Depends(get_db)):
     if not users:
         raise HTTPException(status_code=401, detail="User not found in token")
         
-    email = users[0].get("email")
-    if not email:
+    raw_email = users[0].get("email")
+    if not raw_email:
         raise HTTPException(status_code=400, detail="No email associated with this Google account")
         
-    user = db.query(models.User).filter(models.User.email == email).first()
+    clean_email = raw_email.strip().lower()
+    user = db.query(models.User).filter(func.lower(models.User.email) == clean_email).first()
     
     has_pat = False
     if not user:
         # Sign up the user automatically (OAuth users don't have a password)
-        new_user = models.User(
-            email=email, 
+        user = models.User(
+            email=clean_email, 
             github_pat=None, 
             password="oauth_managed", 
             experience_lvl="Intermediate"
         )
-        db.add(new_user)
+        db.add(user)
         db.commit()
-        db.refresh(new_user)
+        db.refresh(user)
     else:
         has_pat = bool(user.github_pat)
         
-    return {"message": "Login Successful", "email": email, "has_pat": has_pat}
+    return {"message": "Login Successful", "email": user.email, "has_pat": has_pat}
 
 
-#To update the exp lvl
+# To update the exp lvl
 @routes.put("/{email}/experience")
 def updated_exp(email: str, updated_data: schemas.ExperienceUpdate, db: Session = Depends(get_db)): 
-    user = db.query(models.User).filter(models.User.email == email).first()
+    clean_email = email.strip().lower()
+    user = db.query(models.User).filter(func.lower(models.User.email) == clean_email).first()
     
     if not user:
         raise HTTPException(status_code=404, detail="User Not Found")
@@ -113,14 +122,30 @@ def updated_exp(email: str, updated_data: schemas.ExperienceUpdate, db: Session 
 
 @routes.put("/save-pat")
 def save_pat(pat_data: schemas.PATUpdate, db: Session = Depends(get_db)):
-    # 1. Find the user by their email
-    user = db.query(models.User).filter(models.User.email == pat_data.email).first()
+    clean_email = pat_data.email.strip().lower()
+    clean_pat = pat_data.pat.strip()
+    
+    if not clean_email:
+        raise HTTPException(status_code=400, detail="User email is required.")
+    if not clean_pat:
+        raise HTTPException(status_code=400, detail="PAT token is required.")
+
+    encrypted_pat = encrypt_pat(clean_pat)
+    user = db.query(models.User).filter(func.lower(models.User.email) == clean_email).first()
     
     if not user:
-        raise HTTPException(status_code=404, detail="User Not Found")
+        user = models.User(
+            email=clean_email,
+            github_pat=encrypted_pat,
+            password="oauth_or_pat_managed",
+            experience_lvl="Intermediate"
+        )
+        db.add(user)
+    else:
+        user.github_pat = encrypted_pat
         
-    # 2. Save the PAT they just submitted
-    user.github_pat = encrypt_pat(pat_data.pat)
     db.commit()
+    db.refresh(user)
     
     return {"message": "GitHub PAT securely linked to your account!"}
+

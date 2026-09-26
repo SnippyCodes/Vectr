@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-import models as models
+from sqlalchemy import func
+import models
 import app.schemas as schemas
 from database import get_db
 
@@ -9,8 +10,9 @@ routes = APIRouter(prefix="/progress", tags=["Contribution Progress"])
 @routes.get("/{user_email}/{repo_name:path}/{issue_number}", response_model=schemas.ProgressResponse)
 def get_progress(user_email: str, repo_name: str, issue_number: int, db: Session = Depends(get_db)):
     """Fetch saved progress for a user contributing to a specific issue."""
+    clean_email = user_email.strip().lower()
     progress = db.query(models.ContributionProgress).filter(
-        models.ContributionProgress.user_email == user_email,
+        func.lower(models.ContributionProgress.user_email) == clean_email,
         models.ContributionProgress.repo_name == repo_name,
         models.ContributionProgress.issue_number == issue_number
     ).first()
@@ -50,8 +52,9 @@ def get_progress(user_email: str, repo_name: str, issue_number: int, db: Session
 @routes.post("/", response_model=schemas.ProgressResponse)
 def save_progress(req: schemas.SaveProgressRequest, db: Session = Depends(get_db)):
     """Save or update progress for an issue contribution."""
+    clean_email = req.user_email.strip().lower()
     progress = db.query(models.ContributionProgress).filter(
-        models.ContributionProgress.user_email == req.user_email,
+        func.lower(models.ContributionProgress.user_email) == clean_email,
         models.ContributionProgress.repo_name == req.repo_name,
         models.ContributionProgress.issue_number == req.issue_number
     ).first()

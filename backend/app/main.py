@@ -1,14 +1,16 @@
 from dotenv import load_dotenv
+from pathlib import Path
+backend_env = Path(__file__).resolve().parent.parent / '.env'
+if backend_env.exists():
+    load_dotenv(dotenv_path=backend_env)
 load_dotenv()
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
+# pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware #To prevent Network Error 
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-
-# Initialize the rate limiter (tracks by user IP address)
-limiter = Limiter(key_func=get_remote_address)
+from app.limiter import limiter
 
 from app.routers import auth,dashboard,PAT_auth,contribution_flow,repos,ask_nova, progress
 #TO import Local Modules 
