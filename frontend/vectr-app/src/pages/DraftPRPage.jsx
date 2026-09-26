@@ -70,7 +70,9 @@ export default function DraftPRPage() {
                     try {
                         const parsedHistory = JSON.parse(saved.chat_history || '[]');
                         if (parsedHistory.length > 0) setChatMessages(parsedHistory);
-                    } catch(e) {}
+                    } catch {
+                        // Ignore malformed history
+                    }
                 }
             } catch (err) {
                 console.error("Failed to load progress:", err);
@@ -368,7 +370,7 @@ export default function DraftPRPage() {
                                             const filename = parts[0].trim();
                                             const stats = parts[1].trim();
                                             const additionsMatch = stats.match(/\d+(?=\s*\+)/) || stats.match(/\+/g);
-                                            const deletionsMatch = stats.match(/\d+(?=\s*\-)/) || stats.match(/\-/g);
+                                            const deletionsMatch = stats.match(/\d+(?=\s*-)/) || stats.match(/-/g);
                                             const additionsCount = additionsMatch ? (Array.isArray(additionsMatch) && additionsMatch[0] === '+' ? additionsMatch.length : parseInt(additionsMatch[0])) : 0;
                                             const deletionsCount = deletionsMatch ? (Array.isArray(deletionsMatch) && deletionsMatch[0] === '-' ? deletionsMatch.length : parseInt(deletionsMatch[0])) : 0;
                                             return (

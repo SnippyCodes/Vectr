@@ -10,7 +10,6 @@ export default function PRReadinessGrader({
     prBody = '',
     codeDiff = '',
     issueNumber = '',
-    repoName = '',
     onApplyPolish,
     disabled = false
 }) {

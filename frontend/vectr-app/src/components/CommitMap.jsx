@@ -18,7 +18,7 @@ export default function CommitMap({ data = [] }) {
         // Group data into weeks (7 days each)
         const grid = [];
         let currentWeek = [];
-        data.forEach((day, i) => {
+        data.forEach((day) => {
             currentWeek.push(day);
             if (currentWeek.length === 7) {
                 grid.push(currentWeek);

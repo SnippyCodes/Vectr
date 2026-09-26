@@ -32,7 +32,6 @@ export default function IssueDashboardPage() {
     const [chatMessages, setChatMessages] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isRefreshingTestingSteps, setIsRefreshingTestingSteps] = useState(false);
-    const [centerTab, setCenterTab] = useState('studio'); // 'studio' | 'plan'
 
     // Git commands are always generated locally — no Nova credits needed
     const gitCommands = (
@@ -46,19 +45,7 @@ export default function IssueDashboardPage() {
     );
 
     // Helper: fetch testing steps from Nova (used in multiple places)
-    const autoFetchTestingSteps = async () => {
-        setIsRefreshingTestingSteps(true);
-        setTestResults("fetching testing steps, please wait");
-        try {
-            const data = await novaAPI.fetchTestingSteps(repoName, parseInt(issueNumber), issue.title || '', issue.body || '', [], user?.email);
-            setTestResults(data.testing_steps || 'No testing steps provided.');
-        } catch (err) {
-            console.error("Auto-fetch testing steps failed:", err);
-            setTestResults('');
-        } finally {
-            setIsRefreshingTestingSteps(false);
-        }
-    };
+    
 
     // Auto-summarize via Amazon Nova on mount
     useEffect(() => {
@@ -83,7 +70,7 @@ export default function IssueDashboardPage() {
                     try {
                         const parsedHistory = JSON.parse(saved.chat_history || '[]');
                         setChatMessages(prev => [...prev, ...parsedHistory]);
-                    } catch(e) {}
+                    } catch { /* ignore */ }
                     setSummarizing(false);
                     return; // Skip generation since we loaded progress
                 }
@@ -209,7 +196,7 @@ export default function IssueDashboardPage() {
                 chat_history: JSON.stringify(chatMessages)
             });
             showToast('Progress saved successfully', 'success');
-        } catch (err) {
+        } catch {
             showToast('Failed to save progress', 'error');
         } finally {
             setIsSaving(false);

@@ -133,7 +133,7 @@ const SkeletonTwo = () => {
                         key={"row1-" + idx}
                         whileHover={{
                             scale: 1.05,
-                            rotate: (Math.random() - 0.5) * 6,
+                            rotate: ((idx % 3) - 1) * 2,
                             zIndex: 20,
                         }}
                         className="skeleton-two-card"
@@ -154,7 +154,7 @@ const SkeletonTwo = () => {
                         key={"row2-" + idx}
                         whileHover={{
                             scale: 1.05,
-                            rotate: (Math.random() - 0.5) * 6,
+                            rotate: ((idx % 3) - 1) * -2,
                             zIndex: 20,
                         }}
                         className="skeleton-two-card"

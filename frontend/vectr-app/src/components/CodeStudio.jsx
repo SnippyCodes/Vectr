@@ -1,16 +1,15 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { repoAPI, novaAPI } from '../services/api';
+import { repoAPI } from '../services/api';
 import { buildDraftPRPath } from '../constants';
 import { useToast } from './Toast';
 
-export default function CodeStudio({ org, repo, issueNumber, issue, user, repoName }) {
+export default function CodeStudio({ org, repo, issueNumber, issue, user }) {
     const navigate = useNavigate();
     const { showToast } = useToast();
 
     // File selection state
     const [fileTree, setFileTree] = useState([]);
-    const [isLoadingTree, setIsLoadingTree] = useState(false);
     const [selectedPath, setSelectedPath] = useState('');
     const [fileFilter, setFileFilter] = useState('');
     const [showTreeDropdown, setShowTreeDropdown] = useState(false);
@@ -19,7 +18,6 @@ export default function CodeStudio({ org, repo, issueNumber, issue, user, repoNa
     const [originalContent, setOriginalContent] = useState('');
     const [currentContent, setCurrentContent] = useState('');
     const [isLoadingContent, setIsLoadingContent] = useState(false);
-    const [fileSha, setFileSha] = useState('');
     const [viewMode, setViewMode] = useState('editor'); // 'editor' | 'diff'
 
     // Commit state
@@ -41,7 +39,6 @@ export default function CodeStudio({ org, repo, issueNumber, issue, user, repoNa
         if (!user?.email || !org || !repo) return;
         let isMounted = true;
         const loadTree = async () => {
-            setIsLoadingTree(true);
             try {
                 const res = await repoAPI.getFileTree(org, repo, user.email);
                 if (isMounted && res.files) {
@@ -57,8 +54,6 @@ export default function CodeStudio({ org, repo, issueNumber, issue, user, repoNa
                 }
             } catch (err) {
                 console.warn('Could not load repo file tree:', err);
-            } finally {
-                if (isMounted) setIsLoadingTree(false);
             }
         };
         loadTree();
@@ -74,7 +69,6 @@ export default function CodeStudio({ org, repo, issueNumber, issue, user, repoNa
             const data = await repoAPI.getFileContent(org, repo, path, user.email);
             setOriginalContent(data.content);
             setCurrentContent(data.content);
-            setFileSha(data.sha);
             setSelectedPath(path);
             showToast(`Loaded ${path}`, 'info');
         } catch (err) {
@@ -152,7 +146,7 @@ export default function CodeStudio({ org, repo, issueNumber, issue, user, repoNa
             setAuditScore(Math.min(98, Math.max(50, score)));
             setAuditFeedback(tips);
             showToast('Pre-flight audit complete!', 'success');
-        } catch (err) {
+        } catch {
             showToast('Audit failed', 'error');
         } finally {
             setIsAuditing(false);

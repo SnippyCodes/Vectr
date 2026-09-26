@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { contributionAPI, repoAPI } from '../services/api';
@@ -6,9 +6,17 @@ import { ROUTES, FLOW_STEPS, SUPPORTED_LANGUAGES, buildIssuePath } from '../cons
 import { useToast } from '../components/Toast';
 import NovaChat from '../components/NovaChat';
 import { ListSkeleton } from '../components/Skeleton';
-import { Button as StatefulButton } from '../components/ui/stateful-button';
 import LanguageIcon from '../components/LanguageIcon';
 import VectrBrand from '../components/VectrBrand';
+
+const FALLBACK_ORGS = [
+    { name: 'facebook', description: 'Meta Open Source projects and libraries', avatar_url: 'https://avatars.githubusercontent.com/u/69631', url: 'https://github.com/facebook' },
+    { name: 'microsoft', description: 'Open source projects and developer platforms', avatar_url: 'https://avatars.githubusercontent.com/u/6154722', url: 'https://github.com/microsoft' },
+    { name: 'google', description: 'Google Open Source projects', avatar_url: 'https://avatars.githubusercontent.com/u/1342004', url: 'https://github.com/google' },
+    { name: 'vercel', description: 'Develop. Preview. Ship. Creator of Next.js', avatar_url: 'https://avatars.githubusercontent.com/u/14985020', url: 'https://github.com/vercel' },
+    { name: 'freeCodeCamp', description: 'freeCodeCamp.org open source curriculum and apps', avatar_url: 'https://avatars.githubusercontent.com/u/9892522', url: 'https://github.com/freeCodeCamp' },
+    { name: 'torvalds', description: 'Linux kernel and foundational tools', avatar_url: 'https://avatars.githubusercontent.com/u/1024025', url: 'https://github.com/torvalds' }
+];
 
 export default function ContributePage() {
     const { user } = useAuth();
@@ -18,8 +26,10 @@ export default function ContributePage() {
     const [step, setStep] = useState(FLOW_STEPS.SELECT_LANGUAGE);
     const [languages, setLanguages] = useState([]);
     const [selectedLang, setSelectedLang] = useState(null);
+    const [selectingLang, setSelectingLang] = useState(false);
     const [orgs, setOrgs] = useState([]);
     const [selectedOrg, setSelectedOrg] = useState(null);
+    const [selectingOrg, setSelectingOrg] = useState(false);
     const [repos, setRepos] = useState([]);
     const [selectedRepo, setSelectedRepo] = useState(null);
     const [issues, setIssues] = useState([]);
@@ -31,12 +41,9 @@ export default function ContributePage() {
     // Search states
     const [langSearch, setLangSearch] = useState('');
     const [orgSearch, setOrgSearch] = useState('');
-    const [repoSort, setRepoSort] = useState('opportunity'); // 'opportunity' | 'stars'
-    const [issueFilter, setIssueFilter] = useState('all'); // 'all' | 'beginner'
 
-    useEffect(() => { initFlow(); }, []);
-
-    const initFlow = async () => {
+    const initFlow = useCallback(async () => {
+        if (!user?.email) return;
         setLoading(true);
         setError('');
         try {
@@ -63,52 +70,73 @@ export default function ContributePage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user?.email, navigate, showToast]);
+
+    useEffect(() => { 
+        initFlow(); 
+    }, [initFlow]);
 
     const handleLangSelect = async (lang) => {
+        if (selectingLang) return;
         setSelectedLang(lang);
+        setSelectingLang(true);
         setError('');
         try {
-            const data = await contributionAPI.start(user.email, lang === 'All' ? null : lang);
-            setOrgs(data.organizations || []);
+            const data = await contributionAPI.start(user?.email, lang === 'All' ? null : lang);
+            const orgList = (data?.organizations && data.organizations.length > 0)
+                ? data.organizations
+                : FALLBACK_ORGS;
+            setOrgs(orgList);
             
-            // Wait for the button success animation to show before transitioning
-            await new Promise(resolve => setTimeout(resolve, 600));
+            // Brief visual feedback before advancing modal
+            await new Promise(resolve => setTimeout(resolve, 350));
             
             setShowLangModal(false);
             setShowOrgModal(true);
             setStep(FLOW_STEPS.SELECT_ORG);
         } catch (err) {
-            if (err.message && err.message.toLowerCase().includes('pat is missing')) {
+            const errMsg = err?.message || '';
+            if (errMsg.toLowerCase().includes('pat') || errMsg.toLowerCase().includes('token')) {
                 showToast('Please set your GitHub Personal Access Token to continue.', 'error');
+                setShowLangModal(false);
                 navigate(ROUTES.PAT);
                 return;
             }
-            setError(err.message || 'Failed to fetch organizations');
-            throw err;
+            showToast('Unable to fetch live orgs. Showing popular open source organizations.', 'warning');
+            setOrgs(FALLBACK_ORGS);
+            await new Promise(resolve => setTimeout(resolve, 350));
+            setShowLangModal(false);
+            setShowOrgModal(true);
+            setStep(FLOW_STEPS.SELECT_ORG);
+        } finally {
+            setSelectingLang(false);
         }
     };
 
     const handleOrgSelect = async (org) => {
+        if (selectingOrg) return;
         setSelectedOrg(org);
+        setSelectingOrg(true);
         setError('');
         try {
-            const data = await repoAPI.getOrgRepos(org.name, user.email, selectedLang === 'All' ? null : selectedLang);
-            setRepos(data.repos || []);
+            const data = await repoAPI.getOrgRepos(org.name, user?.email, selectedLang === 'All' ? null : selectedLang);
+            setRepos(data?.repos || []);
             
-            // Wait for the button success animation to show before transitioning
-            await new Promise(resolve => setTimeout(resolve, 600));
+            await new Promise(resolve => setTimeout(resolve, 350));
             
             setShowOrgModal(false);
             setStep(FLOW_STEPS.BROWSE);
             showToast(`Browsing ${org.name} repos`, 'info');
         } catch (err) {
-            setError(err.message || 'Failed to fetch repositories');
+            const errMsg = err?.message || 'Failed to fetch repositories';
+            setError(errMsg);
+            showToast(errMsg, 'error');
             setTimeout(() => {
                 setShowOrgModal(false);
                 setStep(FLOW_STEPS.BROWSE);
-            }, 1500);
-            throw err;
+            }, 600);
+        } finally {
+            setSelectingOrg(false);
         }
     };
 
@@ -435,8 +463,10 @@ export default function ContributePage() {
                         <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 min-h-0 mb-5">
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
                                 {/* All Languages Card */}
-                                <StatefulButton 
+                                <button 
+                                    type="button"
                                     onClick={() => handleLangSelect('All')}
+                                    disabled={selectingLang}
                                     className={`modal-lang-card ${selectedLang === 'All' ? 'modal-lang-selected' : ''}`}
                                 >
                                     <div className="w-8 h-8 rounded-lg bg-[#18181c] border border-white/[0.08] flex items-center justify-center p-1.5 flex-shrink-0">
@@ -445,17 +475,26 @@ export default function ContributePage() {
                                     <span className="text-xs font-semibold text-zinc-100 truncate flex-1 text-left">All Languages</span>
                                     {selectedLang === 'All' && (
                                         <span className="w-4 h-4 rounded-full bg-[#22d3ee] flex items-center justify-center text-[#0c0c0c] flex-shrink-0">
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                                                <polyline points="20 6 9 17 4 12" />
-                                            </svg>
+                                            {selectingLang ? (
+                                                <svg className="animate-spin w-2.5 h-2.5 text-[#0c0c0c]" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                            ) : (
+                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                                    <polyline points="20 6 9 17 4 12" />
+                                                </svg>
+                                            )}
                                         </span>
                                     )}
-                                </StatefulButton>
+                                </button>
 
                                 {filteredLanguages.map((lang, i) => (
-                                    <StatefulButton 
+                                    <button 
                                         key={i} 
+                                        type="button"
                                         onClick={() => handleLangSelect(lang)}
+                                        disabled={selectingLang}
                                         className={`modal-lang-card ${selectedLang === lang ? 'modal-lang-selected' : ''}`}
                                     >
                                         <div className="w-8 h-8 rounded-lg bg-[#18181c] border border-white/[0.08] flex items-center justify-center p-1.5 flex-shrink-0">
@@ -464,12 +503,19 @@ export default function ContributePage() {
                                         <span className="text-xs font-medium text-zinc-200 truncate flex-1 text-left">{lang}</span>
                                         {selectedLang === lang && (
                                             <span className="w-4 h-4 rounded-full bg-[#22d3ee] flex items-center justify-center text-[#0c0c0c] flex-shrink-0">
-                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                                                    <polyline points="20 6 9 17 4 12" />
-                                                </svg>
+                                                {selectingLang ? (
+                                                    <svg className="animate-spin w-2.5 h-2.5 text-[#0c0c0c]" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                ) : (
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                                        <polyline points="20 6 9 17 4 12" />
+                                                    </svg>
+                                                )}
                                             </span>
                                         )}
-                                    </StatefulButton>
+                                    </button>
                                 ))}
                             </div>
 
@@ -594,9 +640,11 @@ export default function ContributePage() {
                                 )
                             ) : (
                                 filteredOrgs.map((org, i) => (
-                                    <StatefulButton 
+                                    <button 
                                         key={i} 
+                                        type="button"
                                         onClick={() => handleOrgSelect(org)}
+                                        disabled={selectingOrg}
                                         className={`modal-org-card w-full text-left justify-start !p-3 ${
                                             selectedOrg?.name === org.name ? 'modal-org-selected' : ''
                                         }`}
@@ -634,8 +682,14 @@ export default function ContributePage() {
                                                     <span>{org.language || selectedLang}</span>
                                                 </span>
                                             )}
+                                            {selectedOrg?.name === org.name && selectingOrg && (
+                                                <svg className="animate-spin w-4 h-4 text-[#22d3ee] flex-shrink-0 ml-2" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                            )}
                                         </div>
-                                    </StatefulButton>
+                                    </button>
                                 ))
                             )}
                         </div>
